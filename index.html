@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Keep the Lights On</title>
+<meta name="description" content="Squeektoshi's wheel powers a string of numbered bulbs. Bet test SQK on how many he lights before he falls asleep.">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="styles.css">
+<script type="module" src="app.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <div class="hero-top">
+      <p class="eyebrow"><span class="dot" id="liveDot" aria-hidden="true"></span><span id="eyebrow">Squeekchain · test network</span></p>
+      <button type="button" class="ghost" id="sound" aria-pressed="false">Sound off</button>
+    </div>
+    <h1 id="title" class="sr-only">Keep the Lights On</h1>
+    <div class="sign"><canvas id="sign" aria-hidden="true"></canvas></div>
+    <div class="cam"><canvas id="cam" role="img" aria-label="Hamster cam: Squeektoshi in his wheel, and the big bulb his running powers"></canvas></div>
+    <p class="lede">Bet on how many bulbs Squeektoshi lights tonight.</p>
+  </header>
+
+  <section class="panel" aria-label="The game">
+    <div class="controls">
+      <div class="seg" role="group" aria-label="What the board shows">
+        <button type="button" id="modeLive" aria-pressed="true">Live</button>
+        <button type="button" id="modeReplay" aria-pressed="false">Watch a past night</button>
+      </div>
+    </div>
+
+    <div class="controls" id="replayControls" role="group" aria-label="Replay settings" hidden>
+      <select id="ride" aria-label="Which night to replay"></select>
+      <div class="seg" role="group" aria-label="Replay speed">
+        <button type="button" id="sp1" data-sp="1" aria-pressed="false">1×</button>
+        <button type="button" id="sp2" data-sp="2" aria-pressed="true">2×</button>
+        <button type="button" id="sp4" data-sp="4" aria-pressed="false">4×</button>
+      </div>
+    </div>
+
+    <p class="banner" id="banner" role="status" hidden></p>
+    <div class="board-wrap"><canvas id="board" role="img" aria-label="LED board: Squeektoshi's wheel powers a string of numbered bulbs"></canvas></div>
+    <p class="caption" id="caption">Connecting to Squeekchain…</p>
+
+    <div class="dash">
+      <div class="cell">
+        <span class="label">Your bulb</span>
+        <b id="youState">–</b>
+        <small id="youSub">Tap a bulb on the board, or use − and +</small>
+      </div>
+      <div class="cell">
+        <span class="label" id="moneyLabel">You could win</span>
+        <b id="money">–</b>
+        <small id="moneySub">&nbsp;</small>
+      </div>
+      <div class="cell cta">
+        <div class="pick" id="pickRow">
+          <div class="seg" role="group" aria-label="Which bulb">
+            <button type="button" id="bMinus" aria-label="Lower bulb">−</button>
+            <button type="button" id="bPick" aria-pressed="true" tabindex="-1">6</button>
+            <button type="button" id="bPlus" aria-label="Higher bulb">+</button>
+          </div>
+          <div class="seg" role="group" aria-label="Your bet in test SQK" id="amountRow">
+            <button type="button" id="b50" data-bet="50" aria-pressed="false">50</button>
+            <button type="button" id="b100" data-bet="100" aria-pressed="true">100</button>
+            <button type="button" id="b200" data-bet="200" aria-pressed="false">200</button>
+            <input type="number" id="amtOther" min="10" max="10000" step="1" inputmode="numeric" placeholder="Other" aria-label="Another amount, 10 to 10,000 SQK" hidden>
+          </div>
+        </div>
+        <p class="odds-line" id="pickOdds"></p>
+        <button type="button" class="primary" id="act">Bet on bulb 6</button>
+        <p class="soon" id="soon" hidden>Betting opens soon</p>
+      </div>
+    </div>
+    <p class="hint" id="status" aria-live="polite"></p>
+    <p class="wallet-line" id="walletLine" hidden></p>
+    <button type="button" class="ghost" id="faucet" hidden>Get 1,000 practice SQK</button>
+  </section>
+
+  <section class="panel result-panel" id="results" hidden>
+    <p class="result" id="resYou"></p>
+    <p id="resNote"></p>
+    <button type="button" class="ghost" id="again">Play this night again</button>
+  </section>
+
+  <section class="panel" id="minePanel" hidden>
+    <h2>Your bets</h2>
+    <div class="riders" id="mine"></div>
+  </section>
+
+  <section class="panel">
+    <h2>How it works</h2>
+    <ol class="steps">
+      <li><b>Bet on a bulb</b><span>Pick a bulb number and a bet, before he starts or while he runs.</span></li>
+      <li><b>He powers the lights</b><span>Every 10 minutes Squeektoshi keeps running, the next bulb lights up.</span></li>
+      <li><b>Lit bulbs share the pot</b><span>Everyone's bets make one pot. When the lights go out, the lit bulbs share it. Higher bulbs get bigger slices, and so do early bets.</span></li>
+    </ol>
+    <div class="faq">
+      <details><summary>How do I play?</summary>
+        <p>You need a wallet (like MetaMask or Rabby) on Sepolia, the test network, with some test SQK and a little test ETH for the network fee. Press Connect, pick a bulb and a bet, and press Bet. Your wallet asks twice for each bet: once to let the game take exactly that bet (never more), once to place it. When the lights go out, press Collect if your bulb won.</p></details>
+      <details><summary>Can I bet after the lights are on?</summary>
+        <p>Yes, but on a bulb at least two ahead of the last one that lit, or of the one he is lighting right now if he is running. Everyone can watch him live, so betting on the very next bulb would be too easy. A bet whose bulb lights in the round it was sent or the next one doesn't count, and you get it back. The page only offers bulbs far enough ahead. A bet placed in the 20 quiet minutes before a blackout is for the next ride.</p></details>
+      <details><summary>Which ride does my bet count for?</summary>
+        <p>The ride he is on when you bet. If he is asleep, it counts for his next ride, whenever he starts it. If he stops right after your bet and stays asleep for 20 minutes, the lights go out and your bet moves to his next ride instead. One bet per ride, and a bet can't be changed or taken back.</p></details>
+      <details><summary>Why do early bets get more?</summary>
+        <p>A bet placed before he starts takes the most risk, so it gets the biggest slice. A late bet only counts the bulbs that were still dark when it was placed.</p></details>
+      <details><summary>What if no bulb wins?</summary>
+        <p>If no bet wins, every bet rolls over into the next night's pot. The board shows it as the bonus pot.</p></details>
+      <details><summary>When do I get my winnings?</summary>
+        <p>As soon as the lights go out. Press Collect: it counts the ride and pays you in one go (after a long quiet spell your wallet may ask one extra time, to finish counting). Winnings never expire, so there is no rush. A lit bulb can get back less than its bet on a long night, when the higher bulbs take most of the pot.</p></details>
+      <details><summary>How is this connected to the real hamster?</summary>
+        <p>Squeektoshi's wheel has a sensor. Every 10 minutes Squeekchain writes how many turns he ran onto its blockchain, where nobody can change it. The lights only follow those records: turns light the next bulb, no turns make them flicker, 20 minutes without turns is a blackout. The wheel on the board shows his speed right now, which can run a few minutes ahead of the records.</p></details>
+      <details><summary>How far does he usually get?</summary>
+        <div class="odds" id="odds" role="img" aria-label="Share of his real nights that lit each bulb"></div>
+        <div class="odds-axis"><span>bulb 1</span><span>bulb 10</span><span>bulb 21</span></div>
+        <p id="oddsNote"></p></details>
+      <details><summary>Is this real money?</summary>
+        <p>No. The game uses Squeekchain's test SQK on the Sepolia test network, which has no money value. 2% of the lost bets and of any bonus pot is burned, and nothing in the game wakes him or rewards running faster. Naps are good.</p></details>
+    </div>
+  </section>
+
+  <section class="panel" id="playersPanel">
+    <h2 id="playersTitle">Tonight's bets</h2>
+    <div class="riders" id="riders"></div>
+  </section>
+
+  <footer class="foot" id="foot">
+    <p>Keep the Lights On runs on Sepolia (test network) and follows SqueekCore's records of Squeektoshi's wheel.</p>
+    <p id="links"></p>
+  </footer>
+</div>
+</body>
+</html>
