@@ -49,7 +49,7 @@ async function boot() {
   Board.attach($('board'));
   // the top of the page: the LED title switches on, and the hamster cam shows his speed (fed from the same view as the board)
   createTitle($('sign'), { sprites, dark: Board.isDark });
-  const cam = createStage($('cam'), { sprites, dark: Board.isDark });
+  const cam = createStage($('cam'), { sprites, dark: () => true });   // the cam is a dark LED panel in both themes
   let config, rides;
   try {
     [config, rides] = await Promise.all([loadJson(configPath()), loadJson('data/rides.json')]);
@@ -78,6 +78,8 @@ async function boot() {
     mode = next;
     $('modeLive').setAttribute('aria-pressed', String(next === live));
     $('modeReplay').setAttribute('aria-pressed', String(next === replay));
+    const tag = $('camTag'); tag.dataset.mode = next === live ? 'live' : 'replay'; tag.textContent = next === live ? 'Live' : 'Replay';
+    frame.camState = null;
     mode.enter();
   }
 
@@ -94,7 +96,8 @@ async function boot() {
   for (const id of ['sp1', 'sp2', 'sp4']) $(id).addEventListener('click', (e) => replay.speed(+e.currentTarget.dataset.sp));
   $('sound').addEventListener('click', (e) => {
     const on = Board.toggleSound();
-    e.currentTarget.textContent = on ? 'Sound on' : 'Sound off'; e.currentTarget.setAttribute('aria-pressed', String(on));
+    const btn = e.currentTarget, label = on ? 'Sound on' : 'Sound off';
+    btn.querySelector('.sound-label').textContent = label; btn.setAttribute('aria-label', label); btn.setAttribute('aria-pressed', String(on));
     Board.sfx.tick();
   });
 
@@ -116,16 +119,25 @@ async function boot() {
     const step = acc, time = now / 1000; acc = 0;
     try {
       const v = mode.view(time, step);
-      Board.draw(v, time, step);
-      const running = !v.resting;
-      cam.set({ rpm: running ? (v.pace || 0) / 10 : 0, running });
-      if (running !== frame.running) { frame.running = running; $('cam').setAttribute('aria-label', `Hamster cam: Squeektoshi is ${running ? 'running and the big bulb glows' : 'asleep and the big bulb is dark'}`); }
+      if (frame.boardSeen !== false) Board.draw(v, time, step); else Board.describe(v);   // not drawn while off screen
+      // the cam: running, a short break (awake, bulb low), or asleep
+      const running = !v.resting, pausing = !running && !!v.flicker;
+      cam.set({ rpm: running ? (v.pace || 0) / 10 : 0, running, pausing });
+      const state = running ? 'running and the big bulb glows' : pausing ? 'taking a short break and the big bulb burns low' : 'asleep and the big bulb is dark';
+      if (state !== frame.camState) { frame.camState = state; $('cam').setAttribute('aria-label', `Hamster cam${mode === replay ? ', replay' : ''}: Squeektoshi is ${state}`); }
     } catch (e) {
       // one bad frame must not stop the board; show it once
       if (!frame.failed) { frame.failed = true; banner('Something went wrong drawing the board. Please reload the page.'); setTimeout(() => { throw e; }); }
     }
   }
   requestAnimationFrame(frame);
+  new IntersectionObserver((e) => { frame.boardSeen = e[e.length - 1].isIntersecting; }).observe($('board'));
+
+  // when a number on the dashboard changes, it settles into place (not with reduced motion)
+  if (!Board.reducedMotion()) for (const id of ['youState', 'money']) {
+    const el = $(id);
+    new MutationObserver(() => { el.classList.remove('tick'); void el.offsetWidth; el.classList.add('tick'); }).observe(el, { childList: true, characterData: true, subtree: true });
+  }
 }
 
 boot();

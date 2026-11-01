@@ -4,6 +4,7 @@ pragma solidity 0.8.26;
 import {LightsBase} from "../LightsBase.t.sol";
 import {LightsOn} from "../../src/LightsOn.sol";
 import {MockCore} from "../mocks/Mocks.sol";
+import {DataPath} from "../DataPath.sol";
 
 /// Time and chain-data audit, checks that HOLD on the current LightsOn.sol (every test here passes). They pin the
 /// boundaries the time rules depend on, so a later change that breaks one shows up at once.
@@ -185,7 +186,7 @@ contract TimeChecksTest is LightsBase {
 
     function _realCoreAndLights() internal returns (MockCore c, LightsOn l) {
         c = new MockCore();
-        string memory json = vm.readFile(string.concat(vm.projectRoot(), "/../data/rounds.json"));
+        string memory json = vm.readFile(DataPath.file("rounds.json"));
         Active[] memory act = abi.decode(vm.parseJson(json, ".active"), (Active[]));
         for (uint256 i; i < act.length; ++i) {
             c.setActive(uint64(act[i].id), uint64(act[i].work));

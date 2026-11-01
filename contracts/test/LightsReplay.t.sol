@@ -5,6 +5,7 @@ import {console2} from "forge-std/console2.sol";
 import {LightsBase} from "./LightsBase.t.sol";
 import {LightsOn} from "../src/LightsOn.sol";
 import {LightsMath} from "../src/LightsMath.sol";
+import {DataPath} from "./DataPath.sol";
 
 /// Replays Squeektoshi's real rounds 1-780 (data/rounds.json) through MockCore and LightsOn, with scripted bettors
 /// on every one of the 19 real nights, including the false starts at 478 and 539 that roll a bonus pot forward.
@@ -34,7 +35,7 @@ contract LightsReplayTest is LightsBase {
 
     function setUp() public override {
         _deploy(36);
-        string memory json = vm.readFile(string.concat(vm.projectRoot(), "/../data/rounds.json"));
+        string memory json = vm.readFile(DataPath.file("rounds.json"));
         settledThrough = vm.parseJsonUint(json, ".settledThrough");
         Active[] memory act = abi.decode(vm.parseJson(json, ".active"), (Active[]));
         uint256 cum;
@@ -107,7 +108,7 @@ contract LightsReplayTest is LightsBase {
 
     /// The data agent's data/rides.json (computed separately in node) agrees night by night, bulbs included.
     function test_ridesJsonAgrees() public view {
-        string memory json = vm.readFile(string.concat(vm.projectRoot(), "/../data/rides.json"));
+        string memory json = vm.readFile(DataPath.file("rides.json"));
         assertEq(vm.parseJsonUint(json, "$.settledThrough"), settledThrough, "same rounds snapshot");
         for (uint256 i; i < refs.length; ++i) {
             string memory p = string.concat("$.rides[", vm.toString(i), "]");

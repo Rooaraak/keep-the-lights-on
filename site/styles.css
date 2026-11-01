@@ -5,7 +5,7 @@
   --bg: #f5f5f7; --panel: #ffffff; --line: #e0e0e6; --ink: #17171b; --dim: #6e6e7a; --faint: #b6b6c2;
   --gold: #b07a0c; --gold-dot: #e3a21a; --blue: #4460cf; --win: #1b7849; --lose: #c33346;
   --btn: #17171b; --btn-ink: #f7f7f9; --chip: #ededf0; --note: #fff7e2; --note-line: #f1dca5;
-  --board: #f3f3f6; --board-edge: #e6e6ec;
+  --board: #08080c; --board-edge: #26262f; /* the LED panels stay dark in both themes */
   --mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
   --num: 'Barlow Condensed', 'Arial Narrow', 'Roboto Condensed', sans-serif;
   color-scheme: light;
@@ -39,14 +39,41 @@ h2 { font-family: var(--num); font-weight: 500; font-size: 26px; letter-spacing:
 .board-wrap { border-radius: 12px; overflow: hidden; background: var(--board); border: 1px solid var(--board-edge); line-height: 0; }
 canvas { display: block; width: 100%; }
 #board { cursor: pointer; }
+/* the LED panels keep their space before the page's code has run (no empty boxes, no jump) */
+.cam canvas, .board-wrap canvas, .sign canvas { margin: 0 auto; max-width: 100%; }
+/* a panel's box may shrink below its canvas's current pixel size, so a narrower window re-sizes the dots (no sideways scroll) */
+.sign, .cam, .board-wrap { min-width: 0; }
+.sign { overflow: hidden; }
+#cam { aspect-ratio: 72 / 42; }
+#board { aspect-ratio: 99 / 56; }
+#sign { aspect-ratio: 134 / 10; }
+@media (min-width: 560px) { #board { aspect-ratio: auto; height: 336px; } }
+@media (min-width: 520px) and (max-width: 760px) { #sign { aspect-ratio: 69 / 19; } }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 /* the top of the page, as on the share card: the LED title, the hamster cam, one line */
 .hero { display: grid; gap: 14px; justify-items: center; min-width: 0; padding-block: 2px 6px; }
 .hero-top { display: flex; justify-content: space-between; align-items: center; gap: 12px; width: 100%; }
 .hero-top .ghost { padding: 9px 12px; }
+.hero-top button { white-space: nowrap; }
+.sound { display: inline-flex; align-items: center; gap: 8px; }
+.sound svg { flex: none; }
+.sound .on { display: none; } .sound[aria-pressed="true"] .on { display: inline; } .sound[aria-pressed="true"] .off { display: none; }
+#modeReplay .narrow { display: none; }
+.hero-top .seg button { padding: 10px 11px; }
 .sign { width: 100%; line-height: 0; }
-.cam { width: min(100%, 640px); border-radius: 14px; overflow: hidden; background: var(--board); border: 1px solid var(--board-edge); line-height: 0; }
-.hero .lede { margin: 0; font-size: clamp(12px, 2.4vw, 15px); letter-spacing: .14em; text-transform: uppercase; color: var(--dim); text-align: center; text-wrap: balance; }
+.cam { position: relative; width: min(100%, 640px); border-radius: 14px; overflow: hidden; background: var(--board); border: 1px solid var(--board-edge); line-height: 0; }
+/* like a camera feed: LIVE with a red dot that breathes, or REPLAY */
+.cam-tag { position: absolute; top: 8px; left: 10px; font: 600 10px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase;
+  color: #f2f2f4; background: rgba(5, 5, 8, .55); border-radius: 4px; padding: 4px 6px 4px 16px; pointer-events: none; }
+.cam-tag::before { content: ""; position: absolute; left: 6px; top: 50%; width: 6px; height: 6px; margin-top: -3px; border-radius: 50%; background: #ef4a5f; }
+.cam-tag[data-mode="live"]::before { animation: breathe 1.6s ease-in-out infinite; }
+.cam-tag[data-mode="replay"]::before { background: transparent; width: 0; height: 0; border-radius: 0; margin-top: -4px;
+  border-left: 6px solid #f2f2f4; border-top: 4px solid transparent; border-bottom: 4px solid transparent; }
+@keyframes breathe { 50% { opacity: .25; } }
+.tick { animation: tick .42s cubic-bezier(.2, .9, .3, 1.2); }
+@keyframes tick { from { transform: translateY(5px); opacity: .35; } to { transform: none; opacity: 1; } }
+.cell b { display: inline-block; }
+.hero .lede { margin: 0; font-size: clamp(11px, 2.4vw, 15px); letter-spacing: .14em; text-transform: uppercase; color: var(--dim); text-align: center; text-wrap: balance; }
 .caption { margin: -6px 0 0; color: var(--dim); font-size: 12px; }
 .banner { margin: 0; padding: 10px 12px; border-radius: 10px; background: var(--note); border: 1px solid var(--note-line); font-size: 13px; }
 .dash { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) fit-content(440px); gap: 16px; align-items: center; border-top: 1px solid var(--line); padding-top: 14px; }
@@ -115,10 +142,31 @@ details p { margin: 0 0 12px; color: var(--dim); max-width: 70ch; }
 @media (max-width: 760px) {
   .steps { grid-template-columns: minmax(0, 1fr); }
 }
+/* phones: the game on the first screen. The title goes to one line, the cam is a little smaller, and the caption
+   and status move under the bet controls. */
+@media (max-width: 560px) {
+  .wrap { gap: 12px; }
+  .hero { gap: 10px; }
+  .cam { width: min(100%, 300px); }
+  .panel > .caption { order: 19; margin: 0; }
+  .panel > .board-wrap { order: -1; }
+  .panel > #replayControls { order: -2; }
+  .panel > #banner { order: -3; }
+  .hero .lede { font-size: 11px; letter-spacing: .05em; }
+  select, input { font-size: 16px; }   /* under 16 px an iPhone zooms the page when you tap them */
+  #bMinus, #bPlus { min-width: 44px; }
+  .hero-top .sound-label { display: none; }
+  .hero-top .sound { padding: 9px 11px; }
+  #replayControls { flex-wrap: nowrap; }
+  #replayControls select { flex: 1 1 0; width: 0; min-width: 0; }
+  #replayControls .seg button { padding: 12px 9px; }
+}
 @media (max-width: 400px) {
+  #modeReplay .wide { display: none; } #modeReplay .narrow { display: inline; }
   .seg button { padding: 12px 9px; }
   .primary { padding: 16px 18px; min-width: 0; }
 }
 @media (prefers-reduced-motion: reduce) {
   * { scroll-behavior: auto !important; }
+  .cam-tag::before, .tick { animation: none !important; }
 }

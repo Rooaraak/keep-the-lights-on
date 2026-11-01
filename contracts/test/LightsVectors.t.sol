@@ -7,6 +7,7 @@ import {CommonBase} from "forge-std/Base.sol";
 import {LightsBase} from "./LightsBase.t.sol";
 import {LightsOn} from "../src/LightsOn.sol";
 import {LightsMath} from "../src/LightsMath.sol";
+import {DataPath} from "./DataPath.sol";
 
 /// Settlement vectors for data/lights-vectors.json (settlement v2). Each night is one stops pattern (departure at
 /// round 100), so `lit` and every bet's `litRound` and `litBefore` come from the same rounds and cannot disagree.
@@ -452,7 +453,7 @@ contract LightsVectorsPrint is Script, LightsVectorCases {
 
 contract LightsVectorsTest is LightsBase, LightsVectorCases {
     function _file() internal view returns (string memory) {
-        return vm.readFile(string.concat(vm.projectRoot(), "/../data/lights-vectors.json"));
+        return vm.readFile(DataPath.file("lights-vectors.json"));
     }
 
     function test_vectorsFileMatchesSettlementCode() public {
