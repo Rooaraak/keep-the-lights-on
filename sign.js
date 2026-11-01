@@ -1,53 +1,48 @@
+import { createLed } from './led.js';
+
 // "KEEP THE / LIGHTS ON" in Squeekchain-style LED lettering. On load the letters power up dot by dot from the left,
 // like a sign being switched on; afterwards a soft glint runs across now and then.
-//   createTitle(canvas, { sprites })
+//   createTitle(canvas, { sprites })   (drawn by led.js)
 export function createTitle(canvas, { sprites, dark = () => matchMedia('(prefers-color-scheme: dark)').matches, reduced = matchMedia('(prefers-reduced-motion: reduce)').matches } = {}) {
-  const PAL = sprites._palette, ctx = canvas.getContext('2d');
+  const PAL = sprites._palette, led = createLed(canvas, { glowAlpha: .7 });
+  const LIGHT = { y: '#f5c842', l: '#efbe45', '1': '#efbe45' };   // on a light page the palest yellows would vanish
   const rgb = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
-  let rows, cols, nrows, P, dpr, t0 = performance.now(), isDark = true, cache = null;
+  let rows, cols, nrows, t0 = performance.now(), isDark = true, visible = true, painted = 0, still = false;
 
   function layout() {
-    const w = canvas.parentElement.clientWidth || 600, oneLine = w > 760;
+    // one line on wide screens and on phones (where height is scarce); two lines in between
+    const w = canvas.parentElement.clientWidth || 600, oneLine = w > 760 || w < 520;
     const a = sprites.title1, b = sprites.title2, gap = 4;
-    // wide screens: one line; phones: two lines
     rows = oneLine ? a.map((r, i) => r + '.'.repeat(gap) + b[i]) : [...a, '', ...b].map((r) => r.padEnd(Math.max(a[0].length, b[0].length), '.'));
     cols = rows.reduce((m, r) => Math.max(m, r.length), 0) + 2; nrows = rows.length + 2;
     rows = ['.'.repeat(cols), ...rows.map((r) => '.' + r.padEnd(cols - 1, '.')), '.'.repeat(cols)];
-    dpr = Math.min(2, window.devicePixelRatio || 1); P = w / cols;
-    canvas.width = Math.round(w * dpr); canvas.height = Math.round(P * nrows * dpr); canvas.style.height = `${P * nrows}px`;
-    isDark = dark(); if (cache) cache.clear();
-  }
-  // each lit dot is drawn once per colour (with its glow in the dark theme) and then copied, so a frame stays cheap
-  cache = new Map();
-  function dotSprite(col) {
-    const key = col.join(','); let c = cache.get(key); if (c) return c;
-    const Pd = P * dpr, size = Math.ceil(Pd * 3), m = size / 2, r = Pd * .42;
-    c = document.createElement('canvas'); c.width = c.height = size; const x = c.getContext('2d');
-    if (isDark) { const g = x.createRadialGradient(m, m, r * .5, m, m, r * 2.6); g.addColorStop(0, `rgba(${key},.28)`); g.addColorStop(1, `rgba(${key},0)`); x.fillStyle = g; x.fillRect(0, 0, size, size); }
-    x.fillStyle = `rgb(${key})`; x.beginPath(); x.arc(m, m, r, 0, 6.2832); x.fill();
-    cache.set(key, c); return c;
+    isDark = dark();
+    // the sign sits on the page itself: the page colour around the dots
+    led.size(cols, nrows, { board: getComputedStyle(document.body).backgroundColor || (isDark ? '#0e0e12' : '#f5f5f7'), unlit: isDark ? '#16161e' : '#e3e3e9', glow: isDark && !reduced });
+    painted = 0; still = false;
   }
   function draw(now) {
     requestAnimationFrame(draw);
-    const t = (now - t0) / 1000, Pd = P * dpr, r = Pd * .42;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const t = (now - t0) / 1000;
+    // 30 fps while the letters switch on, then 20 fps for the slow glint; nothing while off screen
+    if (!visible || document.hidden || now - painted < 32) return;
     const glint = reduced ? -99 : ((t - 2.2) % 7) * (cols / 1.6);       // every 7 s a highlight sweeps left to right
-    ctx.fillStyle = isDark ? '#16161e' : '#e3e3e9';
-    for (let y = 0; y < nrows; y++) for (let x = 0; x < cols; x++) {
-      const ch = rows[y][x], cx = (x + .5) * Pd, cy = (y + .5) * Pd;
-      const on = ch && ch !== '.' && (reduced || t > x * .018 + (y % 3) * .01);   // switch on from the left
-      if (!on) { ctx.beginPath(); ctx.arc(cx, cy, r * .95, 0, 6.2832); ctx.fill(); }
-    }
+    // repaint only while the letters switch on or the glint crosses, plus once after; with reduced motion once per layout
+    const moving = !reduced && (t < cols * .018 + 1 || (glint > -3 && glint < cols + 3));
+    if (!moving && still) return;
+    still = !moving; painted = now;
+    led.clear();
     for (let y = 0; y < nrows; y++) for (let x = 0; x < cols; x++) {
       const ch = rows[y][x];
-      if (!ch || ch === '.' || !(reduced || t > x * .018 + (y % 3) * .01)) continue;
-      let col = rgb(PAL[ch]);
+      if (!ch || ch === '.' || !(reduced || t > x * .018 + (y % 3) * .01)) continue;   // switch on from the left
+      let col = rgb((!isDark && LIGHT[ch]) || PAL[ch]);
       if (Math.abs(x - glint) < 2.5 && ch !== 'n') col = col.map((v) => Math.min(255, v + 45));
       if (!reduced && t - x * .018 < .25) col = col.map((v) => Math.min(255, v + 60));   // a little flash as each dot comes on
-      const sp = dotSprite(col), h = sp.width / 2;
-      ctx.drawImage(sp, (x + .5) * Pd - h, (y + .5) * Pd - h);
+      led.set(y * cols + x, led.rgb(...col), ch !== 'n');
     }
+    led.paint();
   }
+  new IntersectionObserver((e) => { visible = e[e.length - 1].isIntersecting; }).observe(canvas);
   let rt = 0;
   new ResizeObserver(() => { clearTimeout(rt); rt = setTimeout(layout, 100); }).observe(canvas.parentElement);
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', layout);

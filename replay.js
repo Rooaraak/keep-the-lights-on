@@ -219,7 +219,7 @@ export function createReplay({ $, setText, setStatus }) {
     const L = len(), r = nowRound();
     if (r !== S.prevR && S.t >= 0) {
       for (let q = Math.max(0, S.prevR); q < r; q++) {
-        if (q >= 1 && q < L && active(q)) { const k = litBy(q); Board.spark(k, time); Board.sfx.zap(); if (S.you && S.you.bulb === k) setTimeout(() => Board.sfx.coin(), 700); }
+        if (q >= 1 && q < L && active(q)) { const k = litBy(q); Board.spark(k, time); Board.sfx.zap(); if (S.you && S.you.bulb === k) setTimeout(() => Board.sfx.coin(), Board.LIGHT.on * 1000); }
       }
       S.prevR = r;
       if (!S.over) renderPlayers();

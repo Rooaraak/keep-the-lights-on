@@ -2,6 +2,8 @@
 // game and the replay draw the same board. A controller hands draw() a plain description of what to show; the
 // board keeps only its animations. Squeektoshi himself and the big bulb are on the hamster cam (art/stage.js).
 
+import { createLed } from './led.js';
+
 const REDUCED = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 export const reducedMotion = () => REDUCED;
 
@@ -11,7 +13,6 @@ const HEX = {
   n: '#6b2f0c', y: '#fdfbc8', r: '#c33346', g: '#6e6e7a', c: '#b6b6c2', F: '#d4a775', f: '#c99762', e: '#c07e72',
   k: '#17171b', m: '#35d07f', G: '#1b7849', p: '#f7a8c9', B: '#b84d00', W: '#ffffff',
 };
-const LIGHT_SWAP = { y: '#efbe45', l: '#efbe45', c: '#8a8a96', W: '#9a9aa6' }; // cream and pale tones vanish on a light board
 const KEYS = Object.keys(HEX), IDX = Object.fromEntries(KEYS.map((k, i) => [k, i]));
 export const isDark = () => {
   const t = document.documentElement.dataset.theme;
@@ -34,50 +35,33 @@ const textWidth = (s) => s.length * 6 - 1;
 
 
 // ---------- the dot grid ----------
-let canvas = null, ctx = null;
-const ROWS = 45;
-const B = { cols: 96, rows: ROWS, p: 8, dpr: 1, buf: null, lvl: null, unlit: null, sprites: new Map(), dark: true, boardColor: '#050508' };
+let canvas = null, led = null;
+const ROWS = 56;
+const B = { cols: 96, rows: ROWS, buf: null, lvl: null, table: null, dark: true, boardColor: '#08080c' };
 export function attach(el) {
   canvas = el;
-  ctx = canvas.getContext('2d');
+  led = createLed(canvas);
   setup();
 }
 export function setup() {
   if (!canvas) return;
   const w = canvas.parentElement.clientWidth || 600;
-  // phones: 72 dots across, like the hamster cam above; wider screens keep the cam's dot size (640 px / 72)
-  B.cols = w < 560 ? 72 : Math.max(96, Math.round(w / 8.9)); B.rows = ROWS;
-  B.dpr = Math.min(2, window.devicePixelRatio || 1);
-  B.p = w / B.cols;
-  canvas.width = Math.round(w * B.dpr); canvas.height = Math.round(B.p * B.rows * B.dpr);
-  canvas.style.height = `${B.p * B.rows}px`;
+  // finer dots than the hamster cam, so the bulbs can carry detail: 96 across on phones, about 6 px on wider screens
+  // finer dots than the hamster cam, so the bulbs carry detail. Phones: exactly 7 whole bulbs across (99 dots);
+  // wider screens: about 6 px dots, the string centred so no bulb is cut at either edge.
+  B.cols = w < 560 ? 99 : Math.max(120, Math.round(w / 6)); B.rows = ROWS;
+  B.fit = Math.max(1, Math.floor((B.cols - 4 - BW) / PITCH) + 1);
+  B.x0 = Math.floor((B.cols - ((B.fit - 1) * PITCH + BW)) / 2);
   B.buf = new Int8Array(B.cols * B.rows); B.lvl = new Uint8Array(B.cols * B.rows);
-  B.dark = isDark(); B.sprites.clear();
-  const css = getComputedStyle(document.documentElement);
-  B.boardColor = css.getPropertyValue('--board').trim() || (B.dark ? '#050508' : '#f3f3f6');
-  B.unlit = document.createElement('canvas'); B.unlit.width = canvas.width; B.unlit.height = canvas.height;
-  const u = B.unlit.getContext('2d'), P = B.p * B.dpr;
-  u.fillStyle = B.boardColor; u.fillRect(0, 0, B.unlit.width, B.unlit.height);
-  u.fillStyle = B.dark ? '#16161e' : '#e3e3e9';
-  for (let y = 0; y < B.rows; y++) for (let x = 0; x < B.cols; x++) { u.beginPath(); u.arc((x + .5) * P, (y + .5) * P, P * .40, 0, 6.2832); u.fill(); }
+  B.dark = true;   // the board is a dark LED panel in both themes, like the hamster cam
+  B.boardColor = getComputedStyle(document.documentElement).getPropertyValue('--board').trim() || '#08080c';
+  led.size(B.cols, B.rows, { board: B.boardColor, unlit: '#16161e', glow: !REDUCED });
+  // every colour at its four brightness levels, as pixels
+  const f = [0, .32, .62, 1];
+  B.table = new Uint32Array(KEYS.length * 4);
+  KEYS.forEach((k, ci) => { const c = rgb(HEX[k]); for (let lv = 0; lv < 4; lv++) B.table[ci * 4 + lv] = led.rgb(...c.map((v) => Math.round(v * f[lv]))); });
 }
 const rgb = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
-function sprite(ci, lv) {
-  const key = ci * 4 + lv; let s = B.sprites.get(key); if (s) return s;
-  const P = B.p * B.dpr, size = Math.ceil(P * 3), c = size / 2;
-  s = document.createElement('canvas'); s.width = s.height = size; const x = s.getContext('2d');
-  const k = KEYS[ci]; let col = rgb((!B.dark && LIGHT_SWAP[k]) || HEX[k]);
-  const f = [0, .32, .62, 1][lv];
-  if (B.dark) col = col.map((v) => Math.round(v * f));
-  else { const bg = rgb(B.boardColor.length === 7 ? B.boardColor : '#f3f3f6'); col = col.map((v, i) => Math.round(bg[i] + (v - bg[i]) * f)); }
-  if (B.dark && lv === 3 && !REDUCED) {
-    const g = x.createRadialGradient(c, c, P * .25, c, c, P * 1.2);
-    g.addColorStop(0, `rgba(${col.join(',')},.2)`); g.addColorStop(1, `rgba(${col.join(',')},0)`);
-    x.fillStyle = g; x.fillRect(0, 0, size, size);
-  }
-  x.fillStyle = `rgb(${col.join(',')})`; x.beginPath(); x.arc(c, c, P * .42, 0, 6.2832); x.fill();
-  B.sprites.set(key, s); return s;
-}
 const clear = () => { B.buf.fill(-1); B.lvl.fill(0); };
 function dot(x, y, k, lv = 3) {
   x = Math.round(x); y = Math.round(y);
@@ -96,16 +80,9 @@ function text(str, x0, y0, k = 'o', lv = 3) {
   }
 }
 function paint() {
-  ctx.globalCompositeOperation = 'source-over';
-  ctx.drawImage(B.unlit, 0, 0);
-  ctx.globalCompositeOperation = B.dark ? 'lighter' : 'source-over';
-  const P = B.p * B.dpr, half = Math.ceil(P * 3) / 2;
-  for (let y = 0; y < B.rows; y++) for (let x = 0; x < B.cols; x++) {
-    const i = y * B.cols + x, ci = B.buf[i];
-    if (ci < 0) continue;
-    ctx.drawImage(sprite(ci, B.lvl[i]), (x + .5) * P - half, (y + .5) * P - half);
-  }
-  ctx.globalCompositeOperation = 'source-over';
+  led.clear();
+  for (let i = 0; i < B.buf.length; i++) { const ci = B.buf[i]; if (ci >= 0) { const lv = B.lvl[i]; led.set(i, B.table[ci * 4 + lv], lv === 3); } }
+  led.paint();
 }
 
 // ---------- sound (only after the viewer turns it on) ----------
@@ -131,10 +108,17 @@ export function toggleSound() {
 }
 
 // ---------- animations the board keeps between frames ----------
-const A = { marquee: '', mqX: 0, sparks: [], coins: [], litAt: [] };
-export function resetAnimations() { Object.assign(A, { sparks: [], coins: [], litAt: [], mqX: B.cols, marquee: '' }); }
-// a spark runs along the cable to bulb k, which lights when it arrives
-export function spark(k, time) { A.sparks.push({ k, t0: time }); A.litAt[k] = time + .7; }
+const A = { marquee: '', mqX: 0, sparks: [], coins: [], litAt: [], bootT0: null, meBulb: null, meT0: -9 };
+export function resetAnimations() { Object.assign(A, { sparks: [], coins: [], litAt: [], mqX: B.cols, marquee: '', meBulb: null, meT0: -9 }); }
+// Switching a bulb on, in seconds after its spark sets off: the spark runs along the cable, the screw base flashes,
+// the filament glows, the glass fills with light from the filament out (with one flicker), a white flash and a ring
+// of light, and the number pops. Several bulbs at once (catching up) go one after another.
+export const LIGHT = { travel: .6, base: .15, filament: .35, fill: .4, on: 1.35, flash: .15, ring: .65, pop: .35, gap: .45 };
+export function spark(k, time) {
+  const last = A.sparks.reduce((m, s) => Math.max(m, s.t0), -Infinity);
+  const t0 = Math.max(time, last + LIGHT.gap);
+  A.sparks.push({ k, t0 }); A.litAt[k] = t0 + LIGHT.on;
+}
 export function coinShower(time) {
   if (REDUCED) return;
   for (let i = 0; i < 26; i++) A.coins.push({ x: (i * 7 + 3) % B.cols, v: 9 + (i % 5) * 3, t0: time + 2.6 + (i % 9) * .12 });
@@ -152,21 +136,34 @@ function potSign(n) {
   let x = POT_X;
   for (const ch of potText(n)) { const g = SMALL[ch]; for (let j = 0; j < 5; j++) for (let i = 0; i < 3; i++) if (g[j] & (4 >> i)) dot(x + i, POT_Y + j, 'o', 3); x += 4; }
 }
-// the small bulbs (art/sprites: sbOff, sbLit, sbPop), 7 x 8 dots: cap, socket, glass
+// The string's bulbs: the hamster cam's big bulb, hanging upside down from the cable. 11 x 14 dots: the wire, the screw
+// base, the glass with its filament. Lit: warm glass, white-hot middle, a glint.
 const SB = {
-  off: ['..ccc..', '..ggg..', '.g...g.', 'g.....g', 'g.....g', 'g.....g', '.g...g.', '..ggg..'],
-  lit: ['..ccc..', '..ggg..', '.owwwo.', 'owllywo', 'owlyylo', 'owllllo', '.owwwo.', '..ooo..'],
-  pop: ['..ccc..', '..ggg..', '.c...c.', 'c..W..c', 'c.W.W.c', 'c..W..c', '.c...c.', '..ccc..'],
+  off: ['....nnn....', '...ccccc...', '...ggggg...', '...ccccc...', '...ggggg...', '...g...g...', '..g.....g..', '.g.......g.',
+    'g.........g', 'g.........g', 'g.........g', '.g.......g.', '..g.....g..', '...ggggg...'],
+  lit: ['....nnn....', '...ccccc...', '...ggggg...', '...ccccc...', '...ggggg...', '...cwwwc...', '..cwwlwwc..', '.cWlllllwc.',
+    'cwllyyyllwc', 'cwlyyyyylwc', 'cwllyyyllwc', '.cwlllllwc.', '..cwwwwwc..', '...ccccc...'],
 };
-const GLASS = [[2, 2], [3, 2], [4, 2], [1, 3], [5, 3], [1, 4], [5, 4], [1, 5], [5, 5], [2, 6], [3, 6], [4, 6]];
-// rows: the sign 1-7, sky and bonus pot 10-16, bulb numbers 18-22, cable 24, bulbs 25-32, bets 34-36, town to 44
-const PITCH = 9, NUM_Y = 18, CABLE = 24, BULB_Y = 25, MARK_Y = 34, BASE = 43;
-const X0 = 3;
-const visibleBulbs = () => Math.floor((B.cols - X0) / PITCH);
+const cellsOf = (rows, test) => rows.flatMap((r, j) => [...r].map((ch, i) => (test(ch, i, j) ? [i, j, ch] : null)).filter(Boolean));
+const GLASS = cellsOf(SB.lit, (ch, i, j) => j >= 5 && 'wlyW'.includes(ch));     // inside the glass
+// the filament: two thin wires down from the base and a short coil, faint until it warms up
+const WIRES = [[4, 6], [6, 6], [4, 7], [6, 7]], COIL = [[4, 8], [5, 8], [6, 8]], FIL = [...WIRES, ...COIL];
+const BW = 11, BH = 14, MID = { x: 5, y: 8 };                                   // the filament's middle, where light starts
+// rows: the sign 1-7, sky and bonus pot 10-16, bulb numbers 18-22, cable 25, bulbs 26-39, bets 42-45, town to 55
+const PITCH = 14, NUM_Y = 18, CABLE = 25, BULB_Y = 26, MARK_Y = 42, BASE = 54;
+const visibleBulbs = () => B.fit || 1;
 // keep the last two lit bulbs and the next dark ones in view, and never scroll past bulb 24
 const scrollFor = (lit) => Math.max(0, Math.min(24 - visibleBulbs(), lit - 2));
-const bulbX = (k, off) => X0 + (k - 1 - off) * PITCH;     // left edge of bulb k's 7 dots
-const STARS = Array.from({ length: 30 }, (_, i) => ({ x: (i * 37 + 23) % 211, y: 10 + (i * 5) % 7, ph: i * 1.7, rate: .7 + (i % 5) * .23 }));
+const bulbX = (k, off) => (B.x0 || 0) + (k - 1 - off) * PITCH;     // left edge of bulb k
+const STARS = Array.from({ length: 44 }, (_, i) => ({ x: (i * 37 + 23) % 331, y: 10 + (i * 5) % 7, ph: i * 1.7, rate: .7 + (i % 5) * .23 }));
+// now and then a shooting star crosses the sky band
+function meteor(time) {
+  if (REDUCED) return;
+  const every = 19, n = Math.floor(time / every), a = time - n * every;
+  if (a > .8) return;
+  const p = a / .8, x0 = (n * 53 + 17) % Math.max(20, B.cols - 30), x = x0 + p * 26, y = 10.5 + p * 5;
+  for (let i = 0; i < 5; i++) dot(x - i * 1.4, y - i * .27, i === 0 ? 'W' : 'y', i < 2 ? 3 : i < 4 ? 2 : 1);
+}
 function sky(time, dim, keepOut = 0) {
   for (const s of STARS) {
     if (s.x >= B.cols || (!B.dark && s.ph % 2 > 1)) continue;
@@ -175,48 +172,110 @@ function sky(time, dim, keepOut = 0) {
     dot(s.x, s.y, B.dark ? 'y' : 'o', Math.max(1, Math.min(B.dark ? 3 : 2, tw - dim)));
   }
 }
-// the cable comes in from the hamster cam on the left and sags a little between the bulbs; it glows up to the last lit one
-function cable(off, lit) {
-  const litTo = lit > off ? bulbX(lit, off) + 3 : -1;
+// the cable comes in from the hamster cam on the left and sags between the bulbs; it glows up to the last lit one
+function cable(off, litTo) {
+  const glowTo = litTo > off ? bulbX(litTo, off) + MID.x : -1;
   for (let x = 0; x < B.cols; x++) {
-    const rel = ((x - X0 - 3) % PITCH + PITCH) % PITCH, sag = x >= X0 && rel >= 3 && rel <= 6 ? 1 : 0;
-    const on = x <= litTo;
-    dot(x, CABLE + sag, on ? 'O' : 'g', on ? 2 : 1);
+    const rel = ((x - B.x0 - MID.x) % PITCH + PITCH) % PITCH, sag = x >= B.x0 && rel >= 4 && rel <= 10 ? (rel >= 6 && rel <= 8 ? 2 : 1) : 0;
+    dot(x, CABLE + sag, x <= glowTo ? 'O' : 'g', x <= glowTo ? 2 : 1);
   }
 }
-function bulb(k, off, state, time, flicker, charging) {
-  const x = bulbX(k, off); if (x < -7 || x >= B.cols) return;
-  // dark numbers stay quiet, except every hour of running (bulbs 6, 12, 18, 24)
-  digits(k, x + (k >= 10 ? 0 : 2), NUM_Y, state === 'lit' ? 'o' : B.dark ? 'g' : 'c', state === 'lit' ? 3 : k % 6 === 0 || charging ? 2 : 1);
-  if (state === 'lit') {
-    const lv = flicker && !REDUCED && Math.sin(time * 23 + k * 3) > .2 ? 2 : 3;
-    stamp(SB.lit, x, BULB_Y, lv);
-    if (B.dark && lv === 3) for (const [i, j] of [[-1, 4], [7, 4], [3, 9]]) dot(x + i, BULB_Y + j, 'w', 1);   // a little halo
-  } else if (state === 'pop') stamp(SB.pop, x, BULB_Y, 2);
-  else {
-    stamp(SB.off, x, BULB_Y, 2);
-    // the next bulb warms up while he runs: its glass pulses amber
-    if (charging) { const lv = REDUCED ? 1 : 1 + Math.round((Math.sin(time * 3) + 1) / 2); for (const [i, j] of GLASS) dot(x + i, BULB_Y + j, 'o', lv); }
+// numbers: a light board needs them a step stronger to read
+const num = (k, x, colour, lv) => digits(k, x + MID.x - (k >= 10 ? 3 : 1), NUM_Y, colour, B.dark ? lv : Math.min(3, lv + 1));
+// the bulb you picked: green brackets at its four corners
+function pickMark(x, time) {
+  const lv = REDUCED ? 3 : 2 + Math.round((Math.sin(time * 4) + 1) / 2) % 2;
+  const l = x - 2, r = x + BW + 1, t = NUM_Y - 2, b = BULB_Y + BH;
+  for (const [cx, cy, dx, dy] of [[l, t, 1, 1], [r, t, -1, 1], [l, b, 1, -1], [r, b, -1, -1]]) {
+    dot(cx, cy, 'm', lv); dot(cx + dx, cy, 'm', lv); dot(cx, cy + dy, 'm', lv);
   }
+}
+// One bulb, in one of: dark, charging (the next one while he runs), lighting (a = seconds into its switch-on), lit,
+// going (q = 0..1 into its blackout).
+function bulb(k, x, st, time, { a = 0, q = 0, flicker = false } = {}) {
+  const y = BULB_Y, L = LIGHT;
+  if (st === 'lit') {
+    // a break: short, irregular dips, as a real bulb does on a weak supply (mostly bright, now and then nearly out)
+    const n = Math.sin(time * 7.3 + k * 1.7) + Math.sin(time * 17.9 + k * 4.1) * .6;
+    const lv = flicker && !REDUCED ? (n > 1.1 ? 1 : n > .75 ? 2 : 3) : 3;
+    stamp(lv === 1 ? SB.off : SB.lit, x, y, lv === 1 ? 2 : lv);
+    if (lv === 1) for (const [i, j] of FIL) dot(x + i, y + j, 'O', 2);
+    if (B.dark && lv === 3) for (const [i, j] of [[-1, 9], [BW, 9], [-1, 8], [BW, 8], [MID.x, BH + 1]]) dot(x + i, y + j, 'w', 1);   // a soft halo
+    num(k, x, 'o', 3);
+    return;
+  }
+  if (st === 'lighting') {
+    stamp(SB.off, x, y, 2);
+    const t = a - L.travel - L.base;                                                                                  // the spark has run down the base
+    if (t < 0) for (const [i, j] of WIRES) dot(x + i, y + j, 'g', 1);
+    if (t >= 0) {                                                                                                     // the filament warms up
+      const f = Math.min(1, t / L.filament);
+      for (const [i, j] of FIL) dot(x + i, y + j, f < .5 ? 'O' : 'y', f < .3 ? 1 : f < .7 ? 2 : 3);
+    }
+    const tf = t - L.filament;
+    if (tf >= 0) {                                                                                                    // light fills the glass outwards
+      const r = Math.min(1, tf / L.fill) * 6.5, dip = tf > L.fill * .55 && tf < L.fill * .7 && !REDUCED;               // one flicker on the way
+      for (const [i, j, ch] of GLASS) { const d = Math.hypot(i - MID.x, j - MID.y); if (d <= r) dot(x + i, y + j, ch, dip ? 1 : d > r - 1.2 ? 2 : 3); }
+    }
+    num(k, x, 'c', 2);
+    return;
+  }
+  if (st === 'going') {
+    if (q < .35) {                                                                                                    // it stutters...
+      const on = REDUCED || Math.sin(q * 90) > 0;
+      stamp(on ? SB.lit : SB.off, x, y, on ? 3 : 2);
+      num(k, x, 'o', on ? 3 : 1);
+    } else {                                                                                                          // ...and goes out, the filament glowing a moment longer
+      stamp(SB.off, x, y, 2);
+      const g = 1 - (q - .35) / .65;
+      for (const [i, j] of FIL) dot(x + i, y + j, g > .5 ? 'O' : 'B', g > .66 ? 3 : g > .33 ? 2 : 1);
+      num(k, x, 'c', 2);
+    }
+    return;
+  }
+  stamp(SB.off, x, y, 2);
+  if (B.dark) { dot(x + 2, y + 8, 'c', 1); dot(x + 2, y + 9, 'c', 1); }   // a glint on the cold glass
+  if (st !== 'charging') { for (const [i, j] of WIRES) dot(x + i, y + j, 'g', 1); for (const [i, j] of COIL) dot(x + i, y + j, 'n', 2); }
+  if (st === 'charging') {                                                                                          // the next bulb warms up while he runs
+    const lv = REDUCED ? 1 : 1 + Math.round((Math.sin(time * 2.6) + 1) / 2);
+    for (const [i, j] of FIL) dot(x + i, y + j, 'O', lv);
+    num(k, x, 'o', lv);
+    return;
+  }
+  num(k, x, 'c', 2);
+}
+// what follows a bulb switching on: a white flash, then a ring of light spreading out and fading
+function afterglow(x, a) {
+  const t = a - LIGHT.on;
+  if (t < 0 || t > LIGHT.ring || REDUCED) return;
+  if (t < LIGHT.flash) for (const [i, j] of GLASS) dot(x + i, BULB_Y + j, 'y', 3);
+  const r = 7.5 + t / LIGHT.ring * 4, lv = t < LIGHT.ring * .4 ? 2 : 1, cx = x + MID.x, cy = BULB_Y + MID.y + 1;
+  for (let n = 0; n < 34; n++) { const th = n / 34 * 2 * Math.PI, py = cy + Math.sin(th) * r; if (py > CABLE + 2) dot(cx + Math.cos(th) * r, py, 'w', lv); }
 }
 // under the bulbs: a green arrow for your bet, up to three dots for everyone else's
 function markers(list, off, lit) {
   for (const m of list) {
-    const x = bulbX(m.bulb, off); if (x < -7 || x >= B.cols) continue;
-    if (m.me) { dot(x + 3, MARK_Y, 'm', 3); dot(x + 2, MARK_Y + 1, 'm', 3); dot(x + 3, MARK_Y + 1, 'm', 3); dot(x + 4, MARK_Y + 1, 'm', 3); }
-    for (let i = 0; i < Math.min(3, m.others || 0); i++) dot(x + 2 + i, MARK_Y + (m.me ? 3 : 1), m.bulb <= lit ? 'G' : 'c', 2);
+    const x = bulbX(m.bulb, off); if (x < -BW || x >= B.cols) continue;
+    const c = x + MID.x;
+    if (m.me) {
+      // a new bet: the arrow drops in from the bulb and bounces, and a green ring goes round the bulb
+      const a = A.time - A.meT0, drop = REDUCED || a > .5 ? 0 : Math.round(-6 * Math.abs(Math.cos(a / .5 * Math.PI * 1.5)) * (1 - a / .5));
+      dot(c, MARK_Y + drop, 'm', 3); dot(c - 1, MARK_Y + 1 + drop, 'm', 3); dot(c, MARK_Y + 1 + drop, 'm', 3); dot(c + 1, MARK_Y + 1 + drop, 'm', 3);
+      if (!REDUCED && a < .7) { const r = 7 + a * 6, cy = BULB_Y + MID.y + 1; for (let n = 0; n < 30; n++) { const th = n / 30 * 2 * Math.PI; dot(c + Math.cos(th) * r, cy + Math.sin(th) * r, 'm', a < .35 ? 2 : 1); } }
+    }
+    for (let i = 0; i < Math.min(3, m.others || 0); i++) dot(c - 2 + i * 2, MARK_Y + (m.me ? 3 : 1), m.bulb <= lit ? 'G' : 'c', 2);
   }
 }
 // the town along the bottom: more windows light as more bulbs do
 function town(lit, time, out) {
   for (let x = 0; x < B.cols; x++) {
-    const lot = Math.floor(x / 9), inLot = x % 9, seed = ((lot + 3) * 2654435761) >>> 0, h = 3 + (seed % 4), wide = 6 + (seed >> 5) % 2;
+    const lot = Math.floor(x / 11), inLot = x % 11, seed = ((lot + 3) * 2654435761) >>> 0, h = 4 + (seed % 5), wide = 7 + (seed >> 5) % 3;
     if (inLot >= wide) continue;
     const roof = BASE - h;
     for (let y = roof; y <= BASE; y++) {
       const edge = y === roof || inLot === 0 || inLot === wide - 1;
       if (edge) { dot(x, y, B.dark ? 'D' : 's', 1); continue; }   // quiet outlines: the lit windows are the point
-      if ((y - roof) % 2 === 0 && inLot % 2 === 1) {
+      if ((y - roof) % 2 === 0 && inLot % 2 === 1 && y < BASE) {
         const want = ((seed >> (inLot + y)) % 20 + 20) % 20; // this window wants bulb `want` before it lights
         if (!out && want < lit * 1.4) dot(x, y, 'w', REDUCED || Math.sin(time * .4 + lot + y) > -.9 ? 2 : 1);
       }
@@ -224,21 +283,37 @@ function town(lit, time, out) {
   }
   for (let x = 0; x < B.cols; x++) { dot(x, BASE + 1, 'G', 1); if (x % 3 === 0) dot(x, BASE, 'G', 1); }
 }
+// the spark: a bright head with a fading tail, and a few sparks flying off it
 function sparks(time, off) {
-  A.sparks = A.sparks.filter((s) => time - s.t0 < .8);
+  A.sparks = A.sparks.filter((s) => time - s.t0 < LIGHT.on + LIGHT.ring + .1);
   for (const s of A.sparks) {
-    const p = Math.min(1, (time - s.t0) / .7), x = (bulbX(s.k, off) + 3) * p;
-    dot(x, CABLE, 'y', 3); dot(x - 1, CABLE, 'w', 2);
+    const a = time - s.t0; if (a < 0 || a > LIGHT.travel + LIGHT.base) continue;
+    const tx = bulbX(s.k, off) + MID.x;
+    if (a > LIGHT.travel) {                                     // down through the screw base into the bulb
+      const d = (a - LIGHT.travel) / LIGHT.base, y = CABLE + 1 + Math.round(d * 5);
+      dot(tx, y, 'W', 3); dot(tx - 1, y, 'y', 2); dot(tx + 1, y, 'y', 2); if (y > CABLE + 1) dot(tx, y - 1, 'w', 2);
+      continue;
+    }
+    const p = a / LIGHT.travel, e = p * p * (3 - 2 * p), x = Math.round(tx * e);
+    for (let i = 0; i < 6; i++) dot(x - i, CABLE, i === 0 ? 'W' : i < 2 ? 'y' : i < 4 ? 'w' : 'o', i < 2 ? 3 : i < 4 ? 2 : 1);
+    if (!REDUCED) for (let i = 0; i < 3; i++) { const ph = (time * 37 + i * 2.3) % 1; dot(x - 1 - i, CABLE - 1 - Math.round(ph * 2), 'y', ph < .5 ? 2 : 1); }
   }
 }
 function coins(time) {
   A.coins = A.coins.filter((c) => time - c.t0 < 2.2);
   for (const c of A.coins) { const a = time - c.t0; if (a >= 0) dot(c.x + Math.sin(a * 5 + c.x) * 1.2, 10 + a * c.v, a % .4 < .2 ? 'w' : 'o', 3); }
 }
+// The sign: a message that fits stands still in the middle; a longer one scrolls through once, whole, before the next
+// one starts (the newest waiting one; news of a blackout or the game's end cuts in at once).
 function marquee(dt, msg) {
-  if (msg !== A.marquee) { A.marquee = msg; A.mqX = REDUCED ? 2 : B.cols; }
-  if (!REDUCED) { A.mqX -= dt * 16; if (A.mqX < -textWidth(msg)) A.mqX = B.cols; }
-  text(msg, Math.round(A.mqX), 1, 'o', 3);
+  const fits = (m) => textWidth(m) <= B.cols - 4, urgent = (m) => /BLACKOUT|ENDED/.test(m) && !/BLACKOUT|ENDED/.test(A.marquee);
+  if (msg !== A.marquee) {
+    const done = !A.marquee || fits(A.marquee) || REDUCED || A.mqX < -textWidth(A.marquee) || urgent(msg);
+    if (done) { A.marquee = msg; A.mqX = fits(msg) || REDUCED ? Math.max(2, Math.floor((B.cols - textWidth(msg)) / 2)) : B.cols; }
+  }
+  const m = A.marquee;
+  if (!REDUCED && !fits(m)) { A.mqX -= dt * 16; if (A.mqX < -textWidth(m) && m === msg) A.mqX = B.cols; }
+  text(m, Math.round(A.mqX), 1, 'o', 3);
   for (let x = 0; x < B.cols; x += 2) dot(x, 9, B.dark ? 'D' : 's', 1);
 }
 
@@ -251,51 +326,86 @@ function marquee(dt, msg) {
 //   pot          bonus pot in whole SQK to show on the sign, 0 = none
 //   markers      [{ bulb, me, others }]
 //   pick         a bulb further along than the view, shown as an arrow at the right edge (0 = none)
-//   outP         null, or 0 -> 1 while the lights pop off after a blackout (>= 1: all dark)
+//   outP         null, or 0 -> 1 while the lights go out after a blackout, the last one first (>= 1: all dark)
 //   msg          the scrolling sign
 //   markerOff    true to hide the markers (after the lights went out)
 // }
 export function draw(v, time, dt) {
   if (!canvas || !B.buf) return;
   const lit = v.lit, off = scrollFor(lit), outP = v.outP;
-  const label = `LED board: Squeektoshi's wheel powers a string of numbered bulbs. ${lit} lit${v.pot ? `. Bonus pot ${v.pot.toLocaleString('en-US')} SQK` : ''}`;
-  if (canvas.getAttribute('aria-label') !== label) canvas.setAttribute('aria-label', label);
+  describe(v);
   clear();
+  A.time = time;
+  const me = (v.markers || []).find((m) => m.me);
+  if (!me) A.meBulb = null; else if (me.bulb !== A.meBulb) { A.meBulb = me.bulb; A.meT0 = time; }
   sky(time, outP != null ? 0 : Math.min(2, Math.floor(lit / 6)), v.pot ? potWidth(v.pot) : 0);
+  if (!v.pot) meteor(time);
   if (v.pot) potSign(v.pot);
   town(lit, time, outP != null && outP > .6);
-  cable(off, outP != null ? 0 : lit);
+  // the cable glows up to the last bulb that is fully on (a bulb still switching on doesn't count yet)
+  let glow = outP != null ? 0 : lit;
+  while (glow > 0 && A.litAt[glow] != null && time < A.litAt[glow] - LIGHT.on + LIGHT.travel) glow--;
+  cable(off, glow);
+  const after = [];
   for (let k = 1; k <= 24; k++) {
-    let st = k <= lit && (A.litAt[k] == null || time >= A.litAt[k]) ? 'lit' : 'dark';
-    if (outP != null && st === 'lit' && outP > 1 - (k - 1) / Math.max(1, lit) * .9) st = 'pop';
-    if (outP != null && outP >= 1) st = 'dark';
-    bulb(k, off, st, time, v.flicker, st === 'dark' && k === lit + 1 && !v.resting && outP == null);
+    const x = bulbX(k, off); if (x < -BW || x >= B.cols) continue;
+    const sp = A.sparks.find((s) => s.k === k), a = sp ? time - sp.t0 : null;
+    let st = 'dark', opts = { flicker: v.flicker };
+    if (outP != null) {
+      if (k <= lit && outP < 1) {
+        const p = .05 + (lit - k) / Math.max(1, lit - 1) * .65, q = (outP - p) / .3;   // the last bulb goes first
+        st = q < 0 ? 'lit' : q < 1 ? 'going' : 'dark'; opts.q = q;
+      }
+    } else if (k <= lit) {
+      if (a != null && a < LIGHT.on) { st = a < 0 ? 'dark' : 'lighting'; opts.a = a; } else st = 'lit';
+      if (a != null && a >= LIGHT.on) after.push([x, a]);
+    } else if (k === lit + 1 && !v.resting) st = 'charging';
+    bulb(k, x, st, time, opts);
   }
+  for (const [x, a] of after) afterglow(x, a);
   if (!v.markerOff) markers(v.markers || [], off, lit);
   sparks(time, off);
   // your bulb is further along than the board shows: its number and a small arrow at the right edge
   const mine = v.pick || 0;
+  if (mine && !(outP != null && outP >= 1)) { const px = bulbX(mine, off); if (px >= 0 && px + BW <= B.cols) pickMark(px, time); }
   if (mine > off + visibleBulbs() && !(outP != null && outP >= 1)) {
     const n = String(mine), x = B.cols - 4 * n.length - 3;
     digits(mine, x, MARK_Y, 'm', 3); for (const [i, j] of [[0, 0], [1, 1], [0, 2]]) dot(B.cols - 2 + i, MARK_Y + 1 + j - 1, 'm', 3);
   }
   marquee(dt * (v.speedMul || 1), v.msg || '');
   coins(time);
+  // the first second: the board switches on with a bright edge sweeping from the left
+  if (A.bootT0 == null) A.bootT0 = time;
+  const boot = (time - A.bootT0) / .9;
+  if (!REDUCED && boot < 1.15) {
+    const edge = boot * (B.cols + 6);
+    for (let y = 0; y < B.rows; y++) for (let x = 0; x < B.cols; x++) {
+      const i = y * B.cols + x;
+      if (x > edge) B.buf[i] = -1; else if (x > edge - 3) { B.buf[i] = IDX.W; B.lvl[i] = x > edge - 1 ? 2 : 1; }
+    }
+  }
   paint();
+}
+
+// The board's text for screen readers (kept up to date even while the board is off screen and not drawn).
+export function describe(v) {
+  if (!canvas) return;
+  const label = `LED board: Squeektoshi's wheel powers a string of numbered bulbs. ${v.lit} lit${v.pot ? `. Bonus pot ${v.pot.toLocaleString('en-US')} SQK` : ''}`;
+  if (canvas.getAttribute('aria-label') !== label) canvas.setAttribute('aria-label', label);
 }
 
 // The bulb under a click on the board, for the same view as the frame (or 0).
 export function bulbAt(clientX, lit) {
   if (!canvas) return 0;
   const rect = canvas.getBoundingClientRect(), cx = (clientX - rect.left) / rect.width * B.cols;
-  const k = Math.floor((cx - X0 + 1) / PITCH) + 1 + scrollFor(lit);
+  const k = Math.floor((cx - (B.x0 || 0) + (PITCH - BW) / 2) / PITCH) + 1 + scrollFor(lit);
   return k >= 1 && k <= 24 ? k : 0;
 }
 // Where bulb k's glass is on the page right now (for tests), or null when it is scrolled out of view.
 export function bulbPoint(k, lit) {
   if (!canvas) return null;
   const x = bulbX(k, scrollFor(lit));
-  if (x < 0 || x + 7 > B.cols) return null;
+  if (x < 0 || x + BW > B.cols) return null;
   const rect = canvas.getBoundingClientRect();
-  return { x: rect.left + (x + 3.5) / B.cols * rect.width, y: rect.top + (BULB_Y + 4.5) / B.rows * rect.height };
+  return { x: rect.left + (x + MID.x + .5) / B.cols * rect.width, y: rect.top + (BULB_Y + MID.y + .5) / B.rows * rect.height };
 }
