@@ -1,0 +1,1331 @@
+{
+ "generatedAt": "2026-11-01T00:17:07.628Z",
+ "source": "data/rounds.json",
+ "settledThrough": 780,
+ "roundsFetchedAt": "2026-10-31T23:52:23.951Z",
+ "rules": {
+  "roundTime": "round R = [G+(R-1)*600, G+R*600)",
+  "warmUp": "the departure round (first active round) is the warm-up and is not a stop",
+  "stop": "every later active round of the ride",
+  "breather": "one idle round; the ride goes on",
+  "lightsOut": "two idle rounds in a row; C = the first of the two",
+  "station": "36 rounds from departure (start..start+35) with no lights out; a pair only counts if both idle rounds are inside",
+  "falseStart": "one active round, then lights out (0 stops); X = 0 so every seat is refunded",
+  "durationRounds": "rounds the bus was out: start through C-1, or the full window at STATION"
+ },
+ "specCheck": {
+  "settledThrough": 775,
+  "rides": 18,
+  "sharesPct": {
+   "1": 89,
+   "2": 78,
+   "3": 50,
+   "4": 39,
+   "6": 33,
+   "10": 22,
+   "15": 17,
+   "18": 11
+  },
+  "spec": {
+   "1": 89,
+   "2": 78,
+   "3": 50,
+   "4": 39,
+   "6": 33,
+   "10": 22,
+   "15": 17,
+   "18": 11
+  },
+  "pass": true,
+  "mismatches": []
+ },
+ "summary": {
+  "completeRides": 19,
+  "openRides": 0,
+  "falseStarts": 2,
+  "stationEnds": 0,
+  "reachingNStops": [
+   {
+    "n": 1,
+    "reached": 17,
+    "total": 19,
+    "share": 0.8947,
+    "survivalTimesTicket": 1.193
+   },
+   {
+    "n": 2,
+    "reached": 15,
+    "total": 19,
+    "share": 0.7895,
+    "survivalTimesTicket": 1.316
+   },
+   {
+    "n": 3,
+    "reached": 10,
+    "total": 19,
+    "share": 0.5263,
+    "survivalTimesTicket": 1.053
+   },
+   {
+    "n": 4,
+    "reached": 8,
+    "total": 19,
+    "share": 0.4211,
+    "survivalTimesTicket": 0.982
+   },
+   {
+    "n": 5,
+    "reached": 7,
+    "total": 19,
+    "share": 0.3684,
+    "survivalTimesTicket": 0.982
+   },
+   {
+    "n": 6,
+    "reached": 7,
+    "total": 19,
+    "share": 0.3684,
+    "survivalTimesTicket": 1.105
+   },
+   {
+    "n": 7,
+    "reached": 7,
+    "total": 19,
+    "share": 0.3684,
+    "survivalTimesTicket": 1.228
+   },
+   {
+    "n": 8,
+    "reached": 6,
+    "total": 19,
+    "share": 0.3158,
+    "survivalTimesTicket": 1.158
+   },
+   {
+    "n": 9,
+    "reached": 5,
+    "total": 19,
+    "share": 0.2632,
+    "survivalTimesTicket": 1.053
+   },
+   {
+    "n": 10,
+    "reached": 4,
+    "total": 19,
+    "share": 0.2105,
+    "survivalTimesTicket": 0.912
+   },
+   {
+    "n": 11,
+    "reached": 4,
+    "total": 19,
+    "share": 0.2105,
+    "survivalTimesTicket": 0.982
+   },
+   {
+    "n": 12,
+    "reached": 4,
+    "total": 19,
+    "share": 0.2105,
+    "survivalTimesTicket": 1.053
+   },
+   {
+    "n": 13,
+    "reached": 4,
+    "total": 19,
+    "share": 0.2105,
+    "survivalTimesTicket": 1.123
+   },
+   {
+    "n": 14,
+    "reached": 4,
+    "total": 19,
+    "share": 0.2105,
+    "survivalTimesTicket": 1.193
+   },
+   {
+    "n": 15,
+    "reached": 3,
+    "total": 19,
+    "share": 0.1579,
+    "survivalTimesTicket": 0.947
+   },
+   {
+    "n": 16,
+    "reached": 3,
+    "total": 19,
+    "share": 0.1579,
+    "survivalTimesTicket": 1
+   },
+   {
+    "n": 17,
+    "reached": 3,
+    "total": 19,
+    "share": 0.1579,
+    "survivalTimesTicket": 1.053
+   },
+   {
+    "n": 18,
+    "reached": 2,
+    "total": 19,
+    "share": 0.1053,
+    "survivalTimesTicket": 0.737
+   },
+   {
+    "n": 19,
+    "reached": 2,
+    "total": 19,
+    "share": 0.1053,
+    "survivalTimesTicket": 0.772
+   },
+   {
+    "n": 20,
+    "reached": 2,
+    "total": 19,
+    "share": 0.1053,
+    "survivalTimesTicket": 0.807
+   },
+   {
+    "n": 21,
+    "reached": 1,
+    "total": 19,
+    "share": 0.0526,
+    "survivalTimesTicket": 0.421
+   }
+  ],
+  "longest": {
+   "stops": 21,
+   "start": 622,
+   "startUtc": "2026-10-30T21:20:00Z",
+   "C": 645
+  },
+  "startTimesUtc": [
+   {
+    "start": 45,
+    "startUtc": "2026-10-26T21:10:00Z",
+    "stops": 14
+   },
+   {
+    "start": 78,
+    "startUtc": "2026-10-27T02:40:00Z",
+    "stops": 2
+   },
+   {
+    "start": 99,
+    "startUtc": "2026-10-27T06:10:00Z",
+    "stops": 4
+   },
+   {
+    "start": 189,
+    "startUtc": "2026-10-27T21:10:00Z",
+    "stops": 8
+   },
+   {
+    "start": 210,
+    "startUtc": "2026-10-28T00:40:00Z",
+    "stops": 7
+   },
+   {
+    "start": 220,
+    "startUtc": "2026-10-28T02:20:00Z",
+    "stops": 2
+   },
+   {
+    "start": 240,
+    "startUtc": "2026-10-28T05:40:00Z",
+    "stops": 3
+   },
+   {
+    "start": 333,
+    "startUtc": "2026-10-28T21:10:00Z",
+    "stops": 2
+   },
+   {
+    "start": 341,
+    "startUtc": "2026-10-28T22:30:00Z",
+    "stops": 17
+   },
+   {
+    "start": 373,
+    "startUtc": "2026-10-29T03:50:00Z",
+    "stops": 2
+   },
+   {
+    "start": 478,
+    "startUtc": "2026-10-29T21:20:00Z",
+    "stops": 0
+   },
+   {
+    "start": 481,
+    "startUtc": "2026-10-29T21:50:00Z",
+    "stops": 20
+   },
+   {
+    "start": 515,
+    "startUtc": "2026-10-30T03:30:00Z",
+    "stops": 3
+   },
+   {
+    "start": 539,
+    "startUtc": "2026-10-30T07:30:00Z",
+    "stops": 0
+   },
+   {
+    "start": 622,
+    "startUtc": "2026-10-30T21:20:00Z",
+    "stops": 21
+   },
+   {
+    "start": 656,
+    "startUtc": "2026-10-31T03:00:00Z",
+    "stops": 2
+   },
+   {
+    "start": 665,
+    "startUtc": "2026-10-31T04:30:00Z",
+    "stops": 1
+   },
+   {
+    "start": 670,
+    "startUtc": "2026-10-31T05:20:00Z",
+    "stops": 1
+   },
+   {
+    "start": 767,
+    "startUtc": "2026-10-31T21:30:00Z",
+    "stops": 9
+   }
+  ]
+ },
+ "rides": [
+  {
+   "n": 1,
+   "start": 45,
+   "warmUp": 45,
+   "startUtc": "2026-10-26T21:10:00Z",
+   "stops": [
+    46,
+    47,
+    48,
+    49,
+    50,
+    51,
+    52,
+    53,
+    55,
+    56,
+    57,
+    59,
+    60,
+    61
+   ],
+   "stopCount": 14,
+   "breathers": [
+    54,
+    58
+   ],
+   "end": "lightsOut",
+   "C": 62,
+   "stationEnd": null,
+   "durationRounds": 17,
+   "falseStart": false,
+   "rounds": [
+    {
+     "id": 45,
+     "work": 170
+    },
+    {
+     "id": 46,
+     "work": 694
+    },
+    {
+     "id": 47,
+     "work": 654
+    },
+    {
+     "id": 48,
+     "work": 445
+    },
+    {
+     "id": 49,
+     "work": 627
+    },
+    {
+     "id": 50,
+     "work": 639
+    },
+    {
+     "id": 51,
+     "work": 401
+    },
+    {
+     "id": 52,
+     "work": 674
+    },
+    {
+     "id": 53,
+     "work": 511
+    },
+    {
+     "id": 54,
+     "work": 0
+    },
+    {
+     "id": 55,
+     "work": 585
+    },
+    {
+     "id": 56,
+     "work": 642
+    },
+    {
+     "id": 57,
+     "work": 65
+    },
+    {
+     "id": 58,
+     "work": 0
+    },
+    {
+     "id": 59,
+     "work": 231
+    },
+    {
+     "id": 60,
+     "work": 659
+    },
+    {
+     "id": 61,
+     "work": 283
+    }
+   ],
+   "lightsOutUtc": "2026-10-27T00:00:00Z"
+  },
+  {
+   "n": 2,
+   "start": 78,
+   "warmUp": 78,
+   "startUtc": "2026-10-27T02:40:00Z",
+   "stops": [
+    79,
+    80
+   ],
+   "stopCount": 2,
+   "breathers": [],
+   "end": "lightsOut",
+   "C": 81,
+   "stationEnd": null,
+   "durationRounds": 3,
+   "falseStart": false,
+   "rounds": [
+    {
+     "id": 78,
+     "work": 412
+    },
+    {
+     "id": 79,
+     "work": 635
+    },
+    {
+     "id": 80,
+     "work": 541
+    }
+   ],
+   "lightsOutUtc": "2026-10-27T03:10:00Z"
+  },
+  {
+   "n": 3,
+   "start": 99,
+   "warmUp": 99,
+   "startUtc": "2026-10-27T06:10:00Z",
+   "stops": [
+    100,
+    101,
+    102,
+    103
+   ],
+   "stopCount": 4,
+   "breathers": [],
+   "end": "lightsOut",
+   "C": 104,
+   "stationEnd": null,
+   "durationRounds": 5,
+   "falseStart": false,
+   "rounds": [
+    {
+     "id": 99,
+     "work": 527
+    },
+    {
+     "id": 100,
+     "work": 520
+    },
+    {
+     "id": 101,
+     "work": 497
+    },
+    {
+     "id": 102,
+     "work": 507
+    },
+    {
+     "id": 103,
+     "work": 263
+    }
+   ],
+   "lightsOutUtc": "2026-10-27T07:00:00Z"
+  },
+  {
+   "n": 4,
+   "start": 189,
+   "warmUp": 189,
+   "startUtc": "2026-10-27T21:10:00Z",
+   "stops": [
+    190,
+    191,
+    192,
+    193,
+    194,
+    195,
+    196,
+    197
+   ],
+   "stopCount": 8,
+   "breathers": [],
+   "end": "lightsOut",
+   "C": 198,
+   "stationEnd": null,
+   "durationRounds": 9,
+   "falseStart": false,
+   "rounds": [
+    {
+     "id": 189,
+     "work": 52
+    },
+    {
+     "id": 190,
+     "work": 662
+    },
+    {
+     "id": 191,
+     "work": 598
+    },
+    {
+     "id": 192,
+     "work": 217
+    },
+    {
+     "id": 193,
+     "work": 92
+    },
+    {
+     "id": 194,
+     "work": 699
+    },
+    {
+     "id": 195,
+     "work": 638
+    },
+    {
+     "id": 196,
+     "work": 490
+    },
+    {
+     "id": 197,
+     "work": 198
+    }
+   ],
+   "lightsOutUtc": "2026-10-27T22:40:00Z"
+  },
+  {
+   "n": 5,
+   "start": 210,
+   "warmUp": 210,
+   "startUtc": "2026-10-28T00:40:00Z",
+   "stops": [
+    211,
+    212,
+    213,
+    214,
+    215,
+    216,
+    217
+   ],
+   "stopCount": 7,
+   "breathers": [],
+   "end": "lightsOut",
+   "C": 218,
+   "stationEnd": null,
+   "durationRounds": 8,
+   "falseStart": false,
+   "rounds": [
+    {
+     "id": 210,
+     "work": 536
+    },
+    {
+     "id": 211,
+     "work": 612
+    },
+    {
+     "id": 212,
+     "work": 569
+    },
+    {
+     "id": 213,
+     "work": 560
+    },
+    {
+     "id": 214,
+     "work": 594
+    },
+    {
+     "id": 215,
+     "work": 517
+    },
+    {
+     "id": 216,
+     "work": 367
+    },
+    {
+     "id": 217,
+     "work": 618
+    }
+   ],
+   "lightsOutUtc": "2026-10-28T02:00:00Z"
+  },
+  {
+   "n": 6,
+   "start": 220,
+   "warmUp": 220,
+   "startUtc": "2026-10-28T02:20:00Z",
+   "stops": [
+    221,
+    222
+   ],
+   "stopCount": 2,
+   "breathers": [],
+   "end": "lightsOut",
+   "C": 223,
+   "stationEnd": null,
+   "durationRounds": 3,
+   "falseStart": false,
+   "rounds": [
+    {
+     "id": 220,
+     "work": 92
+    },
+    {
+     "id": 221,
+     "work": 670
+    },
+    {
+     "id": 222,
+     "work": 604
+    }
+   ],
+   "lightsOutUtc": "2026-10-28T02:50:00Z"
+  },
+  {
+   "n": 7,
+   "start": 240,
+   "warmUp": 240,
+   "startUtc": "2026-10-28T05:40:00Z",
+   "stops": [
+    241,
+    242,
+    243
+   ],
+   "stopCount": 3,
+   "breathers": [],
+   "end": "lightsOut",
+   "C": 244,
+   "stationEnd": null,
+   "durationRounds": 4,
+   "falseStart": false,
+   "rounds": [
+    {
+     "id": 240,
+     "work": 302
+    },
+    {
+     "id": 241,
+     "work": 596
+    },
+    {
+     "id": 242,
+     "work": 538
+    },
+    {
+     "id": 243,
+     "work": 70
+    }
+   ],
+   "lightsOutUtc": "2026-10-28T06:20:00Z"
+  },
+  {
+   "n": 8,
+   "start": 333,
+   "warmUp": 333,
+   "startUtc": "2026-10-28T21:10:00Z",
+   "stops": [
+    334,
+    335
+   ],
+   "stopCount": 2,
+   "breathers": [],
+   "end": "lightsOut",
+   "C": 336,
+   "stationEnd": null,
+   "durationRounds": 3,
+   "falseStart": false,
+   "rounds": [
+    {
+     "id": 333,
+     "work": 106
+    },
+    {
+     "id": 334,
+     "work": 363
+    },
+    {
+     "id": 335,
+     "work": 50
+    }
+   ],
+   "lightsOutUtc": "2026-10-28T21:40:00Z"
+  },
+  {
+   "n": 9,
+   "start": 341,
+   "warmUp": 341,
+   "startUtc": "2026-10-28T22:30:00Z",
+   "stops": [
+    342,
+    343,
+    344,
+    345,
+    346,
+    347,
+    348,
+    349,
+    350,
+    351,
+    352,
+    353,
+    354,
+    355,
+    356,
+    357,
+    358
+   ],
+   "stopCount": 17,
+   "breathers": [],
+   "end": "lightsOut",
+   "C": 359,
+   "stationEnd": null,
+   "durationRounds": 18,
+   "falseStart": false,
+   "rounds": [
+    {
+     "id": 341,
+     "work": 251
+    },
+    {
+     "id": 342,
+     "work": 689
+    },
+    {
+     "id": 343,
+     "work": 572
+    },
+    {
+     "id": 344,
+     "work": 603
+    },
+    {
+     "id": 345,
+     "work": 385
+    },
+    {
+     "id": 346,
+     "work": 609
+    },
+    {
+     "id": 347,
+     "work": 371
+    },
+    {
+     "id": 348,
+     "work": 611
+    },
+    {
+     "id": 349,
+     "work": 613
+    },
+    {
+     "id": 350,
+     "work": 287
+    },
+    {
+     "id": 351,
+     "work": 658
+    },
+    {
+     "id": 352,
+     "work": 387
+    },
+    {
+     "id": 353,
+     "work": 63
+    },
+    {
+     "id": 354,
+     "work": 570
+    },
+    {
+     "id": 355,
+     "work": 537
+    },
+    {
+     "id": 356,
+     "work": 478
+    },
+    {
+     "id": 357,
+     "work": 562
+    },
+    {
+     "id": 358,
+     "work": 290
+    }
+   ],
+   "lightsOutUtc": "2026-10-29T01:30:00Z"
+  },
+  {
+   "n": 10,
+   "start": 373,
+   "warmUp": 373,
+   "startUtc": "2026-10-29T03:50:00Z",
+   "stops": [
+    374,
+    375
+   ],
+   "stopCount": 2,
+   "breathers": [],
+   "end": "lightsOut",
+   "C": 376,
+   "stationEnd": null,
+   "durationRounds": 3,
+   "falseStart": false,
+   "rounds": [
+    {
+     "id": 373,
+     "work": 390
+    },
+    {
+     "id": 374,
+     "work": 636
+    },
+    {
+     "id": 375,
+     "work": 506
+    }
+   ],
+   "lightsOutUtc": "2026-10-29T04:20:00Z"
+  },
+  {
+   "n": 11,
+   "start": 478,
+   "warmUp": 478,
+   "startUtc": "2026-10-29T21:20:00Z",
+   "stops": [],
+   "stopCount": 0,
+   "breathers": [],
+   "end": "lightsOut",
+   "C": 479,
+   "stationEnd": null,
+   "durationRounds": 1,
+   "falseStart": true,
+   "rounds": [
+    {
+     "id": 478,
+     "work": 155
+    }
+   ],
+   "lightsOutUtc": "2026-10-29T21:30:00Z"
+  },
+  {
+   "n": 12,
+   "start": 481,
+   "warmUp": 481,
+   "startUtc": "2026-10-29T21:50:00Z",
+   "stops": [
+    482,
+    483,
+    484,
+    485,
+    486,
+    487,
+    488,
+    489,
+    490,
+    491,
+    492,
+    493,
+    494,
+    495,
+    496,
+    497,
+    499,
+    500,
+    501,
+    502
+   ],
+   "stopCount": 20,
+   "breathers": [
+    498
+   ],
+   "end": "lightsOut",
+   "C": 503,
+   "stationEnd": null,
+   "durationRounds": 22,
+   "falseStart": false,
+   "rounds": [
+    {
+     "id": 481,
+     "work": 260
+    },
+    {
+     "id": 482,
+     "work": 570
+    },
+    {
+     "id": 483,
+     "work": 582
+    },
+    {
+     "id": 484,
+     "work": 624
+    },
+    {
+     "id": 485,
+     "work": 581
+    },
+    {
+     "id": 486,
+     "work": 436
+    },
+    {
+     "id": 487,
+     "work": 631
+    },
+    {
+     "id": 488,
+     "work": 494
+    },
+    {
+     "id": 489,
+     "work": 639
+    },
+    {
+     "id": 490,
+     "work": 495
+    },
+    {
+     "id": 491,
+     "work": 462
+    },
+    {
+     "id": 492,
+     "work": 625
+    },
+    {
+     "id": 493,
+     "work": 556
+    },
+    {
+     "id": 494,
+     "work": 377
+    },
+    {
+     "id": 495,
+     "work": 622
+    },
+    {
+     "id": 496,
+     "work": 597
+    },
+    {
+     "id": 497,
+     "work": 479
+    },
+    {
+     "id": 498,
+     "work": 0
+    },
+    {
+     "id": 499,
+     "work": 615
+    },
+    {
+     "id": 500,
+     "work": 548
+    },
+    {
+     "id": 501,
+     "work": 554
+    },
+    {
+     "id": 502,
+     "work": 336
+    }
+   ],
+   "lightsOutUtc": "2026-10-30T01:30:00Z"
+  },
+  {
+   "n": 13,
+   "start": 515,
+   "warmUp": 515,
+   "startUtc": "2026-10-30T03:30:00Z",
+   "stops": [
+    516,
+    517,
+    518
+   ],
+   "stopCount": 3,
+   "breathers": [],
+   "end": "lightsOut",
+   "C": 519,
+   "stationEnd": null,
+   "durationRounds": 4,
+   "falseStart": false,
+   "rounds": [
+    {
+     "id": 515,
+     "work": 467
+    },
+    {
+     "id": 516,
+     "work": 591
+    },
+    {
+     "id": 517,
+     "work": 336
+    },
+    {
+     "id": 518,
+     "work": 466
+    }
+   ],
+   "lightsOutUtc": "2026-10-30T04:10:00Z"
+  },
+  {
+   "n": 14,
+   "start": 539,
+   "warmUp": 539,
+   "startUtc": "2026-10-30T07:30:00Z",
+   "stops": [],
+   "stopCount": 0,
+   "breathers": [],
+   "end": "lightsOut",
+   "C": 540,
+   "stationEnd": null,
+   "durationRounds": 1,
+   "falseStart": true,
+   "rounds": [
+    {
+     "id": 539,
+     "work": 199
+    }
+   ],
+   "lightsOutUtc": "2026-10-30T07:40:00Z"
+  },
+  {
+   "n": 15,
+   "start": 622,
+   "warmUp": 622,
+   "startUtc": "2026-10-30T21:20:00Z",
+   "stops": [
+    623,
+    624,
+    625,
+    626,
+    627,
+    628,
+    629,
+    630,
+    631,
+    632,
+    633,
+    634,
+    635,
+    636,
+    637,
+    638,
+    639,
+    641,
+    642,
+    643,
+    644
+   ],
+   "stopCount": 21,
+   "breathers": [
+    640
+   ],
+   "end": "lightsOut",
+   "C": 645,
+   "stationEnd": null,
+   "durationRounds": 23,
+   "falseStart": false,
+   "rounds": [
+    {
+     "id": 622,
+     "work": 580
+    },
+    {
+     "id": 623,
+     "work": 657
+    },
+    {
+     "id": 624,
+     "work": 487
+    },
+    {
+     "id": 625,
+     "work": 120
+    },
+    {
+     "id": 626,
+     "work": 475
+    },
+    {
+     "id": 627,
+     "work": 428
+    },
+    {
+     "id": 628,
+     "work": 597
+    },
+    {
+     "id": 629,
+     "work": 534
+    },
+    {
+     "id": 630,
+     "work": 534
+    },
+    {
+     "id": 631,
+     "work": 625
+    },
+    {
+     "id": 632,
+     "work": 473
+    },
+    {
+     "id": 633,
+     "work": 505
+    },
+    {
+     "id": 634,
+     "work": 233
+    },
+    {
+     "id": 635,
+     "work": 638
+    },
+    {
+     "id": 636,
+     "work": 561
+    },
+    {
+     "id": 637,
+     "work": 159
+    },
+    {
+     "id": 638,
+     "work": 513
+    },
+    {
+     "id": 639,
+     "work": 471
+    },
+    {
+     "id": 640,
+     "work": 0
+    },
+    {
+     "id": 641,
+     "work": 623
+    },
+    {
+     "id": 642,
+     "work": 222
+    },
+    {
+     "id": 643,
+     "work": 447
+    },
+    {
+     "id": 644,
+     "work": 63
+    }
+   ],
+   "lightsOutUtc": "2026-10-31T01:10:00Z"
+  },
+  {
+   "n": 16,
+   "start": 656,
+   "warmUp": 656,
+   "startUtc": "2026-10-31T03:00:00Z",
+   "stops": [
+    657,
+    658
+   ],
+   "stopCount": 2,
+   "breathers": [],
+   "end": "lightsOut",
+   "C": 659,
+   "stationEnd": null,
+   "durationRounds": 3,
+   "falseStart": false,
+   "rounds": [
+    {
+     "id": 656,
+     "work": 336
+    },
+    {
+     "id": 657,
+     "work": 660
+    },
+    {
+     "id": 658,
+     "work": 273
+    }
+   ],
+   "lightsOutUtc": "2026-10-31T03:30:00Z"
+  },
+  {
+   "n": 17,
+   "start": 665,
+   "warmUp": 665,
+   "startUtc": "2026-10-31T04:30:00Z",
+   "stops": [
+    666
+   ],
+   "stopCount": 1,
+   "breathers": [],
+   "end": "lightsOut",
+   "C": 667,
+   "stationEnd": null,
+   "durationRounds": 2,
+   "falseStart": false,
+   "rounds": [
+    {
+     "id": 665,
+     "work": 403
+    },
+    {
+     "id": 666,
+     "work": 476
+    }
+   ],
+   "lightsOutUtc": "2026-10-31T04:50:00Z"
+  },
+  {
+   "n": 18,
+   "start": 670,
+   "warmUp": 670,
+   "startUtc": "2026-10-31T05:20:00Z",
+   "stops": [
+    671
+   ],
+   "stopCount": 1,
+   "breathers": [],
+   "end": "lightsOut",
+   "C": 672,
+   "stationEnd": null,
+   "durationRounds": 2,
+   "falseStart": false,
+   "rounds": [
+    {
+     "id": 670,
+     "work": 412
+    },
+    {
+     "id": 671,
+     "work": 56
+    }
+   ],
+   "lightsOutUtc": "2026-10-31T05:40:00Z"
+  },
+  {
+   "n": 19,
+   "start": 767,
+   "warmUp": 767,
+   "startUtc": "2026-10-31T21:30:00Z",
+   "stops": [
+    768,
+    769,
+    770,
+    771,
+    772,
+    773,
+    774,
+    775,
+    776
+   ],
+   "stopCount": 9,
+   "breathers": [],
+   "end": "lightsOut",
+   "C": 777,
+   "stationEnd": null,
+   "durationRounds": 10,
+   "falseStart": false,
+   "rounds": [
+    {
+     "id": 767,
+     "work": 615
+    },
+    {
+     "id": 768,
+     "work": 593
+    },
+    {
+     "id": 769,
+     "work": 495
+    },
+    {
+     "id": 770,
+     "work": 178
+    },
+    {
+     "id": 771,
+     "work": 628
+    },
+    {
+     "id": 772,
+     "work": 603
+    },
+    {
+     "id": 773,
+     "work": 400
+    },
+    {
+     "id": 774,
+     "work": 464
+    },
+    {
+     "id": 775,
+     "work": 79
+    },
+    {
+     "id": 776,
+     "work": 3
+    }
+   ],
+   "lightsOutUtc": "2026-10-31T23:10:00Z"
+  }
+ ]
+}

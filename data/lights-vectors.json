@@ -1,0 +1,512 @@
+[
+  {
+    "name": "normal-night",
+    "note": "lit 5: the pot is all four stakes (700), 2% of the 300 lost burns (6), the two lit bulbs share 694 by stake x bulb (200 : 900)",
+    "burnBps": 200,
+    "lit": 5,
+    "bonusIn": "0",
+    "bets": [
+      { "stake": "100000000000000000000", "bulb": 2, "betRound": 97, "litRound": 102, "litBefore": 0 },
+      { "stake": "300000000000000000000", "bulb": 3, "betRound": 97, "litRound": 103, "litBefore": 0 },
+      { "stake": "100000000000000000000", "bulb": 6, "betRound": 97, "litRound": null, "litBefore": 0 },
+      { "stake": "200000000000000000000", "bulb": 8, "betRound": 97, "litRound": null, "litBefore": 0 }
+    ],
+    "expect": {
+      "payouts": ["126181818181818181818", "567818181818181818182", "0", "0"],
+      "burned": "6000000000000000000",
+      "bonusOut": "0",
+      "result": "paid",
+      "classes": ["win", "win", "lose", "lose"]
+    }
+  },
+  {
+    "name": "all-winners",
+    "note": "every bulb lit, no bonus pot: nothing burns and the winners share their own 360 by stake x bulb, so bulb 1 gets back less than its stake",
+    "burnBps": 200,
+    "lit": 5,
+    "bonusIn": "0",
+    "bets": [
+      { "stake": "100000000000000000000", "bulb": 1, "betRound": 97, "litRound": 101, "litBefore": 0 },
+      { "stake": "250000000000000000000", "bulb": 4, "betRound": 97, "litRound": 104, "litBefore": 0 },
+      { "stake": "10000000000000000000", "bulb": 5, "betRound": 98, "litRound": 105, "litBefore": 0 }
+    ],
+    "expect": {
+      "payouts": ["31304347826086956521", "313043478260869565218", "15652173913043478261"],
+      "burned": "0",
+      "bonusOut": "0",
+      "result": "paid",
+      "classes": ["win", "win", "win"]
+    }
+  },
+  {
+    "name": "all-losers-rollover",
+    "note": "lit 3, every bulb higher: all stakes become the next night's bonus pot",
+    "burnBps": 200,
+    "lit": 3,
+    "bonusIn": "0",
+    "bets": [
+      { "stake": "100000000000000000000", "bulb": 7, "betRound": 97, "litRound": null, "litBefore": 0 },
+      { "stake": "500000000000000000000", "bulb": 9, "betRound": 97, "litRound": null, "litBefore": 0 },
+      { "stake": "40000000000000000000", "bulb": 24, "betRound": 99, "litRound": null, "litBefore": 0 }
+    ],
+    "expect": {
+      "payouts": ["0", "0", "0"],
+      "burned": "0",
+      "bonusOut": "640000000000000000000",
+      "result": "rolled",
+      "classes": ["lose", "lose", "lose"]
+    }
+  },
+  {
+    "name": "false-start-with-bonus-pot",
+    "note": "one round, then asleep: lit 0, the stakes and the 600 pot roll on",
+    "burnBps": 200,
+    "lit": 0,
+    "bonusIn": "600000000000000000000",
+    "bets": [
+      { "stake": "100000000000000000000", "bulb": 1, "betRound": 97, "litRound": null, "litBefore": 0 },
+      { "stake": "250000000000000000000", "bulb": 2, "betRound": 97, "litRound": null, "litBefore": 0 },
+      { "stake": "10000000000000000000", "bulb": 24, "betRound": 98, "litRound": null, "litBefore": 0 }
+    ],
+    "expect": {
+      "payouts": ["0", "0", "0"],
+      "burned": "0",
+      "bonusOut": "960000000000000000000",
+      "result": "rolled",
+      "classes": ["lose", "lose", "lose"]
+    }
+  },
+  {
+    "name": "bonus-pot-won",
+    "note": "a 600 pot from a rolled night: pot 600 staked + 600, burn 2% of (400 lost + 600) = 20, 1180 split 200 : 400",
+    "burnBps": 200,
+    "lit": 5,
+    "bonusIn": "600000000000000000000",
+    "bets": [
+      { "stake": "100000000000000000000", "bulb": 2, "betRound": 97, "litRound": 102, "litBefore": 0 },
+      { "stake": "100000000000000000000", "bulb": 4, "betRound": 97, "litRound": 104, "litBefore": 0 },
+      { "stake": "400000000000000000000", "bulb": 12, "betRound": 97, "litRound": null, "litBefore": 0 }
+    ],
+    "expect": {
+      "payouts": ["393333333333333333333", "786666666666666666667", "0"],
+      "burned": "20000000000000000000",
+      "bonusOut": "0",
+      "result": "paid",
+      "classes": ["win", "win", "lose"]
+    }
+  },
+  {
+    "name": "bonus-pot-only-winners",
+    "note": "nobody lost but a 1000 pot came in: 2% of the pot burns, the winners share 1180 by stake x bulb",
+    "burnBps": 200,
+    "lit": 5,
+    "bonusIn": "1000000000000000000000",
+    "bets": [
+      { "stake": "100000000000000000000", "bulb": 1, "betRound": 97, "litRound": 101, "litBefore": 0 },
+      { "stake": "100000000000000000000", "bulb": 3, "betRound": 97, "litRound": 103, "litBefore": 0 }
+    ],
+    "expect": {
+      "payouts": ["295000000000000000000", "885000000000000000000"],
+      "burned": "20000000000000000000",
+      "bonusOut": "0",
+      "result": "paid",
+      "classes": ["win", "win"]
+    }
+  },
+  {
+    "name": "empty-night-carries-pot",
+    "note": "no bets: the 300 pot rolls on untouched",
+    "burnBps": 200,
+    "lit": 3,
+    "bonusIn": "300000000000000000000",
+    "bets": [],
+    "expect": {
+      "payouts": [],
+      "burned": "0",
+      "bonusOut": "300000000000000000000",
+      "result": "rolled",
+      "classes": []
+    }
+  },
+  {
+    "name": "late-bet-two-rounds-rule",
+    "note": "bets in round 103: bulb 3 (lit 103) and bulb 4 (lit 104 = N+1) are refunded, bulb 5 (lit 105 = N+2) counts with weight 100 x (5 - 2 lit before 103)",
+    "burnBps": 200,
+    "lit": 10,
+    "bonusIn": "0",
+    "bets": [
+      { "stake": "200000000000000000000", "bulb": 20, "betRound": 97, "litRound": null, "litBefore": 0 },
+      { "stake": "100000000000000000000", "bulb": 1, "betRound": 99, "litRound": 101, "litBefore": 0 },
+      { "stake": "100000000000000000000", "bulb": 3, "betRound": 103, "litRound": 103, "litBefore": 2 },
+      { "stake": "100000000000000000000", "bulb": 4, "betRound": 103, "litRound": 104, "litBefore": 2 },
+      { "stake": "100000000000000000000", "bulb": 5, "betRound": 103, "litRound": 105, "litBefore": 2 }
+    ],
+    "expect": {
+      "payouts": ["0", "99000000000000000000", "100000000000000000000", "100000000000000000000", "297000000000000000000"],
+      "burned": "4000000000000000000",
+      "bonusOut": "0",
+      "result": "paid",
+      "classes": ["lose", "win", "refund", "refund", "win"]
+    }
+  },
+  {
+    "name": "departure-round-bulb-1",
+    "note": "bulb 1 lights in 101: a bet sent in 99 counts, a bet sent in the departure round 100 is refunded",
+    "burnBps": 200,
+    "lit": 4,
+    "bonusIn": "0",
+    "bets": [
+      { "stake": "100000000000000000000", "bulb": 1, "betRound": 99, "litRound": 101, "litBefore": 0 },
+      { "stake": "80000000000000000000", "bulb": 9, "betRound": 99, "litRound": null, "litBefore": 0 },
+      { "stake": "100000000000000000000", "bulb": 1, "betRound": 100, "litRound": 101, "litBefore": 0 },
+      { "stake": "100000000000000000000", "bulb": 2, "betRound": 100, "litRound": 102, "litBefore": 0 }
+    ],
+    "expect": {
+      "payouts": ["92800000000000000000", "0", "100000000000000000000", "185600000000000000000"],
+      "burned": "1600000000000000000",
+      "bonusOut": "0",
+      "result": "paid",
+      "classes": ["win", "lose", "refund", "win"]
+    }
+  },
+  {
+    "name": "breaks-shift-the-bulbs",
+    "note": "quiet 102 and 105 are breaks: bulbs light in 101, 103, 104, 106; bulb 2 counts from 101 but not from 102; bulb 3 sent in 102 weighs 100 x (3 - 1)",
+    "burnBps": 200,
+    "lit": 4,
+    "bonusIn": "0",
+    "bets": [
+      { "stake": "150000000000000000000", "bulb": 6, "betRound": 97, "litRound": null, "litBefore": 0 },
+      { "stake": "100000000000000000000", "bulb": 2, "betRound": 101, "litRound": 103, "litBefore": 0 },
+      { "stake": "100000000000000000000", "bulb": 2, "betRound": 102, "litRound": 103, "litBefore": 1 },
+      { "stake": "100000000000000000000", "bulb": 3, "betRound": 102, "litRound": 104, "litBefore": 1 }
+    ],
+    "expect": {
+      "payouts": ["0", "173500000000000000000", "100000000000000000000", "173500000000000000000"],
+      "burned": "3000000000000000000",
+      "bonusOut": "0",
+      "result": "paid",
+      "classes": ["lose", "win", "refund", "win"]
+    }
+  },
+  {
+    "name": "refund-in-a-rolled-night",
+    "note": "nobody won; the late bet on bulb 3 (lit 103 = N+1) did not count and is refunded, the rest roll",
+    "burnBps": 200,
+    "lit": 3,
+    "bonusIn": "0",
+    "bets": [
+      { "stake": "100000000000000000000", "bulb": 5, "betRound": 97, "litRound": null, "litBefore": 0 },
+      { "stake": "200000000000000000000", "bulb": 6, "betRound": 97, "litRound": null, "litBefore": 0 },
+      { "stake": "70000000000000000000", "bulb": 3, "betRound": 102, "litRound": 103, "litBefore": 1 }
+    ],
+    "expect": {
+      "payouts": ["0", "0", "70000000000000000000"],
+      "burned": "0",
+      "bonusOut": "300000000000000000000",
+      "result": "rolled",
+      "classes": ["lose", "lose", "refund"]
+    }
+  },
+  {
+    "name": "dust-stakes",
+    "note": "wei-sized stakes and pot (below the 10 SQK minimum: math only); floors stay exact",
+    "burnBps": 200,
+    "lit": 4,
+    "bonusIn": "13",
+    "bets": [
+      { "stake": "1", "bulb": 1, "betRound": 97, "litRound": 101, "litBefore": 0 },
+      { "stake": "2", "bulb": 2, "betRound": 97, "litRound": 102, "litBefore": 0 },
+      { "stake": "3", "bulb": 4, "betRound": 97, "litRound": 104, "litBefore": 0 },
+      { "stake": "5", "bulb": 5, "betRound": 97, "litRound": null, "litBefore": 0 },
+      { "stake": "7", "bulb": 9, "betRound": 97, "litRound": null, "litBefore": 0 },
+      { "stake": "11", "bulb": 3, "betRound": 98, "litRound": 103, "litBefore": 0 }
+    ],
+    "expect": {
+      "payouts": ["0", "4", "10", "0", "0", "28"],
+      "burned": "0",
+      "bonusOut": "0",
+      "result": "paid",
+      "classes": ["win", "win", "win", "lose", "lose", "win"]
+    }
+  },
+  {
+    "name": "odd-stakes",
+    "note": "stakes and pot that do not divide: the last winner takes the rounding",
+    "burnBps": 200,
+    "lit": 5,
+    "bonusIn": "1000000000000000001",
+    "bets": [
+      { "stake": "13333333333333333333", "bulb": 1, "betRound": 97, "litRound": 101, "litBefore": 0 },
+      { "stake": "47000000000000000001", "bulb": 3, "betRound": 97, "litRound": 103, "litBefore": 0 },
+      { "stake": "99999999999999999999", "bulb": 4, "betRound": 97, "litRound": 104, "litBefore": 0 },
+      { "stake": "71000000000000000003", "bulb": 7, "betRound": 97, "litRound": null, "litBefore": 0 },
+      { "stake": "23000000000000000007", "bulb": 2, "betRound": 98, "litRound": 102, "litBefore": 0 },
+      { "stake": "11000000000000000011", "bulb": 9, "betRound": 98, "litRound": null, "litBefore": 0 }
+    ],
+    "expect": {
+      "payouts": ["5878363871923005737", "62163697945585785680", "176350916157690172136", "0", "20280355358134369802", "0"],
+      "burned": "1660000000000000000",
+      "bonusOut": "0",
+      "result": "paid",
+      "classes": ["win", "win", "win", "lose", "win", "lose"]
+    }
+  },
+  {
+    "name": "whale-wins",
+    "note": "10,000 SQK on bulb 8 (lit 8) takes most of the pot; the 10 SQK on bulb 1 lit too but gets back 1.26",
+    "burnBps": 200,
+    "lit": 8,
+    "bonusIn": "0",
+    "bets": [
+      { "stake": "10000000000000000000000", "bulb": 8, "betRound": 97, "litRound": 108, "litBefore": 0 },
+      { "stake": "10000000000000000000", "bulb": 1, "betRound": 97, "litRound": 101, "litBefore": 0 },
+      { "stake": "20000000000000000000", "bulb": 9, "betRound": 97, "litRound": null, "litBefore": 0 },
+      { "stake": "35000000000000000000", "bulb": 10, "betRound": 98, "litRound": null, "litBefore": 0 },
+      { "stake": "50000000000000000000", "bulb": 12, "betRound": 98, "litRound": null, "litBefore": 0 }
+    ],
+    "expect": {
+      "payouts": ["10111636045494313210848", "1263954505686789152", "0", "0", "0"],
+      "burned": "2100000000000000000",
+      "bonusOut": "0",
+      "result": "paid",
+      "classes": ["win", "win", "lose", "lose", "lose"]
+    }
+  },
+  {
+    "name": "whale-loses",
+    "note": "10,000 SQK on bulb 7 stays dark (lit 6): 2% of it burns and three small winners share 9,885",
+    "burnBps": 200,
+    "lit": 6,
+    "bonusIn": "0",
+    "bets": [
+      { "stake": "10000000000000000000000", "bulb": 7, "betRound": 97, "litRound": null, "litBefore": 0 },
+      { "stake": "10000000000000000000", "bulb": 2, "betRound": 97, "litRound": 102, "litBefore": 0 },
+      { "stake": "25000000000000000000", "bulb": 5, "betRound": 97, "litRound": 105, "litBefore": 0 },
+      { "stake": "50000000000000000000", "bulb": 6, "betRound": 98, "litRound": 106, "litBefore": 0 }
+    ],
+    "expect": {
+      "payouts": ["0", "444269662921348314606", "2776685393258426966292", "6664044943820224719102"],
+      "burned": "200000000000000000000",
+      "bonusOut": "0",
+      "result": "paid",
+      "classes": ["lose", "win", "win", "win"]
+    }
+  },
+  {
+    "name": "station-night",
+    "note": "36 running rounds (STATION): lit 35, all 24 bulbs at 10,000 win and share 240,490 by bulb: bulb 1 gets back 801.6, bulb 24 19,239.2",
+    "burnBps": 200,
+    "lit": 35,
+    "bonusIn": "500000000000000000000",
+    "bets": [
+      { "stake": "10000000000000000000000", "bulb": 1, "betRound": 97, "litRound": 101, "litBefore": 0 },
+      { "stake": "10000000000000000000000", "bulb": 2, "betRound": 97, "litRound": 102, "litBefore": 0 },
+      { "stake": "10000000000000000000000", "bulb": 3, "betRound": 97, "litRound": 103, "litBefore": 0 },
+      { "stake": "10000000000000000000000", "bulb": 4, "betRound": 97, "litRound": 104, "litBefore": 0 },
+      { "stake": "10000000000000000000000", "bulb": 5, "betRound": 97, "litRound": 105, "litBefore": 0 },
+      { "stake": "10000000000000000000000", "bulb": 6, "betRound": 97, "litRound": 106, "litBefore": 0 },
+      { "stake": "10000000000000000000000", "bulb": 7, "betRound": 97, "litRound": 107, "litBefore": 0 },
+      { "stake": "10000000000000000000000", "bulb": 8, "betRound": 97, "litRound": 108, "litBefore": 0 },
+      { "stake": "10000000000000000000000", "bulb": 9, "betRound": 97, "litRound": 109, "litBefore": 0 },
+      { "stake": "10000000000000000000000", "bulb": 10, "betRound": 97, "litRound": 110, "litBefore": 0 },
+      { "stake": "10000000000000000000000", "bulb": 11, "betRound": 97, "litRound": 111, "litBefore": 0 },
+      { "stake": "10000000000000000000000", "bulb": 12, "betRound": 97, "litRound": 112, "litBefore": 0 },
+      { "stake": "10000000000000000000000", "bulb": 13, "betRound": 97, "litRound": 113, "litBefore": 0 },
+      { "stake": "10000000000000000000000", "bulb": 14, "betRound": 97, "litRound": 114, "litBefore": 0 },
+      { "stake": "10000000000000000000000", "bulb": 15, "betRound": 97, "litRound": 115, "litBefore": 0 },
+      { "stake": "10000000000000000000000", "bulb": 16, "betRound": 97, "litRound": 116, "litBefore": 0 },
+      { "stake": "10000000000000000000000", "bulb": 17, "betRound": 97, "litRound": 117, "litBefore": 0 },
+      { "stake": "10000000000000000000000", "bulb": 18, "betRound": 97, "litRound": 118, "litBefore": 0 },
+      { "stake": "10000000000000000000000", "bulb": 19, "betRound": 97, "litRound": 119, "litBefore": 0 },
+      { "stake": "10000000000000000000000", "bulb": 20, "betRound": 97, "litRound": 120, "litBefore": 0 },
+      { "stake": "10000000000000000000000", "bulb": 21, "betRound": 97, "litRound": 121, "litBefore": 0 },
+      { "stake": "10000000000000000000000", "bulb": 22, "betRound": 97, "litRound": 122, "litBefore": 0 },
+      { "stake": "10000000000000000000000", "bulb": 23, "betRound": 97, "litRound": 123, "litBefore": 0 },
+      { "stake": "10000000000000000000000", "bulb": 24, "betRound": 97, "litRound": 124, "litBefore": 0 }
+    ],
+    "expect": {
+      "payouts": ["801633333333333333333", "1603266666666666666667", "2404900000000000000000", "3206533333333333333333", "4008166666666666666667", "4809800000000000000000", "5611433333333333333333", "6413066666666666666667", "7214700000000000000000", "8016333333333333333333", "8817966666666666666667", "9619600000000000000000", "10421233333333333333333", "11222866666666666666667", "12024500000000000000000", "12826133333333333333333", "13627766666666666666667", "14429400000000000000000", "15231033333333333333333", "16032666666666666666667", "16834300000000000000000", "17635933333333333333333", "18437566666666666666667", "19239200000000000000000"],
+      "burned": "10000000000000000000",
+      "bonusOut": "0",
+      "result": "paid",
+      "classes": ["win", "win", "win", "win", "win", "win", "win", "win", "win", "win", "win", "win", "win", "win", "win", "win", "win", "win", "win", "win", "win", "win", "win", "win"]
+    }
+  },
+  {
+    "name": "twenty-four-bulbs-half-lit",
+    "note": "10,000 on each bulb, lit 12: bulbs 1-12 share the whole 237,600 by bulb, so bulbs 1-3 get back less than their stake",
+    "burnBps": 200,
+    "lit": 12,
+    "bonusIn": "0",
+    "bets": [
+      { "stake": "10000000000000000000000", "bulb": 1, "betRound": 97, "litRound": 101, "litBefore": 0 },
+      { "stake": "10000000000000000000000", "bulb": 2, "betRound": 97, "litRound": 102, "litBefore": 0 },
+      { "stake": "10000000000000000000000", "bulb": 3, "betRound": 97, "litRound": 103, "litBefore": 0 },
+      { "stake": "10000000000000000000000", "bulb": 4, "betRound": 97, "litRound": 104, "litBefore": 0 },
+      { "stake": "10000000000000000000000", "bulb": 5, "betRound": 97, "litRound": 105, "litBefore": 0 },
+      { "stake": "10000000000000000000000", "bulb": 6, "betRound": 97, "litRound": 106, "litBefore": 0 },
+      { "stake": "10000000000000000000000", "bulb": 7, "betRound": 97, "litRound": 107, "litBefore": 0 },
+      { "stake": "10000000000000000000000", "bulb": 8, "betRound": 97, "litRound": 108, "litBefore": 0 },
+      { "stake": "10000000000000000000000", "bulb": 9, "betRound": 97, "litRound": 109, "litBefore": 0 },
+      { "stake": "10000000000000000000000", "bulb": 10, "betRound": 97, "litRound": 110, "litBefore": 0 },
+      { "stake": "10000000000000000000000", "bulb": 11, "betRound": 97, "litRound": 111, "litBefore": 0 },
+      { "stake": "10000000000000000000000", "bulb": 12, "betRound": 97, "litRound": 112, "litBefore": 0 },
+      { "stake": "10000000000000000000000", "bulb": 13, "betRound": 97, "litRound": null, "litBefore": 0 },
+      { "stake": "10000000000000000000000", "bulb": 14, "betRound": 97, "litRound": null, "litBefore": 0 },
+      { "stake": "10000000000000000000000", "bulb": 15, "betRound": 97, "litRound": null, "litBefore": 0 },
+      { "stake": "10000000000000000000000", "bulb": 16, "betRound": 97, "litRound": null, "litBefore": 0 },
+      { "stake": "10000000000000000000000", "bulb": 17, "betRound": 97, "litRound": null, "litBefore": 0 },
+      { "stake": "10000000000000000000000", "bulb": 18, "betRound": 97, "litRound": null, "litBefore": 0 },
+      { "stake": "10000000000000000000000", "bulb": 19, "betRound": 97, "litRound": null, "litBefore": 0 },
+      { "stake": "10000000000000000000000", "bulb": 20, "betRound": 97, "litRound": null, "litBefore": 0 },
+      { "stake": "10000000000000000000000", "bulb": 21, "betRound": 97, "litRound": null, "litBefore": 0 },
+      { "stake": "10000000000000000000000", "bulb": 22, "betRound": 97, "litRound": null, "litBefore": 0 },
+      { "stake": "10000000000000000000000", "bulb": 23, "betRound": 97, "litRound": null, "litBefore": 0 },
+      { "stake": "10000000000000000000000", "bulb": 24, "betRound": 97, "litRound": null, "litBefore": 0 }
+    ],
+    "expect": {
+      "payouts": ["3046153846153846153846", "6092307692307692307692", "9138461538461538461538", "12184615384615384615385", "15230769230769230769231", "18276923076923076923077", "21323076923076923076923", "24369230769230769230769", "27415384615384615384615", "30461538461538461538462", "33507692307692307692308", "36553846153846153846154", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0"],
+      "burned": "2400000000000000000000",
+      "bonusOut": "0",
+      "result": "paid",
+      "classes": ["win", "win", "win", "win", "win", "win", "win", "win", "win", "win", "win", "win", "lose", "lose", "lose", "lose", "lose", "lose", "lose", "lose", "lose", "lose", "lose", "lose"]
+    }
+  },
+  {
+    "name": "higher-bulb-bigger-share",
+    "note": "equal stakes on bulbs 1, 5 and 10 (lit 10) share 496 as 1 : 5 : 10 (31, 155, 310)",
+    "burnBps": 200,
+    "lit": 10,
+    "bonusIn": "0",
+    "bets": [
+      { "stake": "100000000000000000000", "bulb": 1, "betRound": 97, "litRound": 101, "litBefore": 0 },
+      { "stake": "100000000000000000000", "bulb": 5, "betRound": 97, "litRound": 105, "litBefore": 0 },
+      { "stake": "100000000000000000000", "bulb": 10, "betRound": 97, "litRound": 110, "litBefore": 0 },
+      { "stake": "100000000000000000000", "bulb": 11, "betRound": 98, "litRound": null, "litBefore": 0 },
+      { "stake": "100000000000000000000", "bulb": 12, "betRound": 98, "litRound": null, "litBefore": 0 }
+    ],
+    "expect": {
+      "payouts": ["31000000000000000000", "155000000000000000000", "310000000000000000000", "0", "0"],
+      "burned": "4000000000000000000",
+      "bonusOut": "0",
+      "result": "paid",
+      "classes": ["win", "win", "win", "lose", "lose"]
+    }
+  },
+  {
+    "name": "single-bet-wins-alone",
+    "note": "one bet whose bulb lit, nobody to win from: the whole pot is its own stake",
+    "burnBps": 200,
+    "lit": 3,
+    "bonusIn": "0",
+    "bets": [
+      { "stake": "42000000000000000000", "bulb": 2, "betRound": 97, "litRound": 102, "litBefore": 0 }
+    ],
+    "expect": {
+      "payouts": ["42000000000000000000"],
+      "burned": "0",
+      "bonusOut": "0",
+      "result": "paid",
+      "classes": ["win"]
+    }
+  },
+  {
+    "name": "single-bet-dark",
+    "note": "one bet whose bulb stayed dark: it becomes the bonus pot",
+    "burnBps": 200,
+    "lit": 3,
+    "bonusIn": "0",
+    "bets": [
+      { "stake": "42000000000000000000", "bulb": 9, "betRound": 97, "litRound": null, "litBefore": 0 }
+    ],
+    "expect": {
+      "payouts": ["0"],
+      "burned": "0",
+      "bonusOut": "42000000000000000000",
+      "result": "rolled",
+      "classes": ["lose"]
+    }
+  },
+  {
+    "name": "marathon-short-bulb-gets-back-less",
+    "note": "a marathon (lit 15): 1,000 on bulb 1 lit, but the long bulbs take most of the pot and it gets back 289.8",
+    "burnBps": 200,
+    "lit": 15,
+    "bonusIn": "0",
+    "bets": [
+      { "stake": "1000000000000000000000", "bulb": 1, "betRound": 97, "litRound": 101, "litBefore": 0 },
+      { "stake": "100000000000000000000", "bulb": 2, "betRound": 97, "litRound": 102, "litBefore": 0 },
+      { "stake": "200000000000000000000", "bulb": 12, "betRound": 97, "litRound": 112, "litBefore": 0 },
+      { "stake": "100000000000000000000", "bulb": 14, "betRound": 98, "litRound": 114, "litBefore": 0 },
+      { "stake": "50000000000000000000", "bulb": 20, "betRound": 98, "litRound": null, "litBefore": 0 }
+    ],
+    "expect": {
+      "payouts": ["289800000000000000000", "57960000000000000000", "695520000000000000000", "405720000000000000000", "0"],
+      "burned": "1000000000000000000",
+      "bonusOut": "0",
+      "result": "paid",
+      "classes": ["win", "win", "win", "win", "lose"]
+    }
+  },
+  {
+    "name": "late-bet-lit-before",
+    "note": "bulb 8 sent before the start weighs 100 x 8; the same bet sent in 104 (3 lit before) weighs 100 x 5, and bulb 9 sent in 106 (5 lit) 100 x 4",
+    "burnBps": 200,
+    "lit": 10,
+    "bonusIn": "0",
+    "bets": [
+      { "stake": "100000000000000000000", "bulb": 8, "betRound": 97, "litRound": 108, "litBefore": 0 },
+      { "stake": "100000000000000000000", "bulb": 15, "betRound": 97, "litRound": null, "litBefore": 0 },
+      { "stake": "100000000000000000000", "bulb": 8, "betRound": 104, "litRound": 108, "litBefore": 3 },
+      { "stake": "100000000000000000000", "bulb": 9, "betRound": 106, "litRound": 109, "litBefore": 5 }
+    ],
+    "expect": {
+      "payouts": ["187294117647058823529", "0", "117058823529411764706", "93647058823529411765"],
+      "burned": "2000000000000000000",
+      "bonusOut": "0",
+      "result": "paid",
+      "classes": ["win", "lose", "win", "win"]
+    }
+  },
+  {
+    "name": "quiet-round-bet-joins-next-night",
+    "note": "the night before blacked out in 98 and 99 (C = 98) and he left again in 100: bets sent in 98 and 99 belong to this night and bulb 1 (lit 101) counts; bulb 1 sent in the departure round is refunded",
+    "burnBps": 200,
+    "lit": 4,
+    "bonusIn": "0",
+    "bets": [
+      { "stake": "100000000000000000000", "bulb": 1, "betRound": 98, "litRound": 101, "litBefore": 0 },
+      { "stake": "100000000000000000000", "bulb": 2, "betRound": 99, "litRound": 102, "litBefore": 0 },
+      { "stake": "60000000000000000000", "bulb": 6, "betRound": 99, "litRound": null, "litBefore": 0 },
+      { "stake": "100000000000000000000", "bulb": 1, "betRound": 100, "litRound": 101, "litBefore": 0 }
+    ],
+    "expect": {
+      "payouts": ["86266666666666666666", "172533333333333333334", "0", "100000000000000000000"],
+      "burned": "1200000000000000000",
+      "bonusOut": "0",
+      "result": "paid",
+      "classes": ["win", "win", "lose", "refund"]
+    }
+  },
+  {
+    "name": "no-losers-redistribution",
+    "note": "lit 6, nobody lost, no pot: nothing burns, the late refund is set aside, and three winners share their 300 as 100 : 300 : 500 (bulb 6 was sent after bulb 1 lit)",
+    "burnBps": 200,
+    "lit": 6,
+    "bonusIn": "0",
+    "bets": [
+      { "stake": "100000000000000000000", "bulb": 1, "betRound": 97, "litRound": 101, "litBefore": 0 },
+      { "stake": "100000000000000000000", "bulb": 3, "betRound": 97, "litRound": 103, "litBefore": 0 },
+      { "stake": "100000000000000000000", "bulb": 2, "betRound": 101, "litRound": 102, "litBefore": 0 },
+      { "stake": "100000000000000000000", "bulb": 6, "betRound": 102, "litRound": 106, "litBefore": 1 }
+    ],
+    "expect": {
+      "payouts": ["33333333333333333333", "100000000000000000000", "100000000000000000000", "166666666666666666667"],
+      "burned": "0",
+      "bonusOut": "0",
+      "result": "paid",
+      "classes": ["win", "win", "refund", "win"]
+    }
+  }
+]
