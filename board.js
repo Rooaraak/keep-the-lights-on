@@ -303,12 +303,15 @@ function coins(time) {
   A.coins = A.coins.filter((c) => time - c.t0 < 2.2);
   for (const c of A.coins) { const a = time - c.t0; if (a >= 0) dot(c.x + Math.sin(a * 5 + c.x) * 1.2, 10 + a * c.v, a % .4 < .2 ? 'w' : 'o', 3); }
 }
-// The sign: a message that fits stands still in the middle; a longer one scrolls through once, whole, before the next
-// one starts (the newest waiting one; news of a blackout or the game's end cuts in at once).
+// The sign: a message that fits stands still in the middle; a longer one scrolls. When news comes now and then (live),
+// it replaces the old message at once: stale news is wrong news. When it comes faster than every 6 s (a replay), a
+// longer message scrolls through whole before the newest waiting one starts, else none would ever be read; a blackout
+// or the game's end still cuts in.
 function marquee(dt, msg) {
   const fits = (m) => textWidth(m) <= B.cols - 4, urgent = (m) => /BLACKOUT|ENDED/.test(m) && !/BLACKOUT|ENDED/.test(A.marquee);
+  if (msg !== A.lastIn) { A.busy = A.time - (A.lastInAt ?? -99) < 6; A.lastIn = msg; A.lastInAt = A.time; }
   if (msg !== A.marquee) {
-    const done = !A.marquee || fits(A.marquee) || REDUCED || A.mqX < -textWidth(A.marquee) || urgent(msg);
+    const done = !A.busy || !A.marquee || fits(A.marquee) || REDUCED || A.mqX < -textWidth(A.marquee) || urgent(msg);
     if (done) { A.marquee = msg; A.mqX = fits(msg) || REDUCED ? Math.max(2, Math.floor((B.cols - textWidth(msg)) / 2)) : B.cols; }
   }
   const m = A.marquee;
