@@ -621,7 +621,7 @@ async function S5(ctx) {
 // ================================================================= run
 
 const fresh = H.checkBuildFresh();
-check(fresh.fresh, 'contracts/out/LightsOn.json is built from the current contracts/src (else run forge build --offline in contracts/)');
+check(fresh.fresh, 'out/LightsOn.json is built from the current src (else run forge build --offline)');
 const started = Date.now();
 try {
   const sessions = ['S1', 'S2', 'S3'].filter((x) => !ONLY || ONLY.has(x));

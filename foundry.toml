@@ -1,11 +1,10 @@
-# The Foundry project, run from the repository root (the contracts and their tests live in contracts/).
-# `forge test` works from here and from contracts/ (which has its own foundry.toml).
+# Keep the Lights On: the contracts (src/), their tests (test/) and forge-std (lib/).
 [profile.default]
-src = "contracts/src"
-test = "contracts/test"
+src = "src"
+test = "test"
 out = "out"
 cache_path = "cache"
-libs = ["contracts/lib"]
+libs = ["lib"]
 solc = "0.8.26"
 optimizer = true
 optimizer_runs = 200

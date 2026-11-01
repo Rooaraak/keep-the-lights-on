@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // chain.js and the live model against the real LightsOn bytecode on a local anvil chain (nothing leaves the box,
-// no keys: anvil's dev accounts are unlocked). Deploys MockCore, MockSQK and LightsOn from contracts/out, plays
+// no keys: anvil's dev accounts are unlocked). Deploys MockCore, MockSQK and LightsOn from out, plays
 // four nights (a normal one, bets sent in the blackout joining the next night, a false start that rolls its pot,
 // a night that wins it), and checks:
 //   - every read decodes (bets, nights, walker, open night, bonus pot) and matches what the contract stored
@@ -19,7 +19,7 @@ import * as M from '../live-model.js';
 import * as E from '../engine.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const OUT = join(HERE, '..', '..', 'contracts', 'out');
+const OUT = join(HERE, '..', '..', 'out');
 const portArg = process.argv.indexOf('--port');
 const freePort = () => new Promise((resolve, reject) => { const s = createServer(); s.on('error', reject); s.listen(0, '127.0.0.1', () => { const p = s.address().port; s.close(() => resolve(p)); }); });
 const PORT = portArg > 0 ? Number(process.argv[portArg + 1]) : await freePort();

@@ -37,9 +37,9 @@ count.
 
 | Path | What |
 |---|---|
-| `contracts/src/LightsOn.sol` | The game: bets, the night walker over SqueekCore, settlement, collecting, the stall and void safety valves |
-| `contracts/src/LightsMath.sol` | Who wins and how much (weights, burn, rollover, rounding to the wei) |
-| `contracts/test/` | Foundry tests: unit, fuzz, invariants, gas, replays of his real nights, the shared test vectors |
+| `src/LightsOn.sol` | The game: bets, the night walker over SqueekCore, settlement, collecting, the stall and void safety valves |
+| `src/LightsMath.sol` | Who wins and how much (weights, burn, rollover, rounding to the wei) |
+| `test/` | Foundry tests: unit, fuzz, invariants, gas, replays of his real nights, the shared test vectors |
 | `site/` | The website: plain HTML, CSS and JavaScript modules, no build step and no libraries |
 | `site/test/` | Page tests: static checks, engine vs vectors, chain encoding, a real contract on a local chain, Chrome end to end |
 | `data/rounds.json`, `data/rides.json` | His real rounds and rides from SqueekCore, which the replays and tests use |
@@ -56,7 +56,7 @@ python3 -m http.server 8000 --directory site
 Contract tests (Foundry):
 
 ```
-cd contracts && forge test
+forge test
 ```
 
 Page tests (node 22; the browser tests also need Chrome, puppeteer and Foundry's `anvil`; see `site/test/README.md`):

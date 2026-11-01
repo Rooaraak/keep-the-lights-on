@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // The page's rules, offline:
 //  1. site/engine.js is byte for byte the approved art/led-demo/lights-engine.js.
-//  2. It settles every vector in data/lights-vectors.json (made by contracts/src/LightsMath.sol) to the wei.
+//  2. It settles every vector in data/lights-vectors.json (made by src/LightsMath.sol) to the wei.
 //  3. The replay's lowest bulb is never refunded on any real night (copied from sim/check-lights-vectors.mjs §6, §8).
 //  4. The live page's walk of SqueekCore rounds gives exactly the nights in data/rides.json, and the odds.
 //  5. The live page's lowest bulb is never refunded, on every round of rounds 1-780, when SqueekCore is one or two

@@ -6,7 +6,7 @@ chains are anvil, and every transaction is sent from one of anvil's own unlocked
 
 Needs node 22, Foundry (`anvil`), Chrome and puppeteer. If they aren't on the default paths, point the tests at
 them with `ANVIL=/path/to/anvil`, `CHROME=/path/to/chrome` and `PUPPETEER=/path/to/node_modules/puppeteer`. No
-npm, pip or forge installs are needed for the page itself. The contracts must be built (`contracts/out`, from `forge build --offline` in
+npm, pip or forge installs are needed for the page itself. The contracts must be built (`out`, from `forge build --offline` in
 `contracts/`); the end-to-end test checks that the build is newer than the sources.
 
 ## Run them
@@ -34,7 +34,7 @@ killed by the test itself at 85 s and counted as a failure.
 
 | File | |
 |---|---|
-| `e2e/harness.mjs` | anvil on a free port; `createTestChain` deploys `MockCore` and `MockSQK` (from `contracts/test/mocks/Mocks.sol`) and `LightsOn` from `contracts/out`, then drives time (`at(round, secs)`: `evm_setNextBlockTimestamp` + `evm_mine`) and the core (`record(through, works)`: `setActive` for running rounds, then `setSettled`); a small web server for `site/` that also serves the **test copy of config.json** at `/config.e2e.json` (anvil's RPC, chain 31337, the deployed addresses, `walkFrom`, `clock: "chain"`) and a fake status API at `/__status` (wheel speed set by the scenario, or an old reading); the **fake wallet**; Chrome launch with the 85 s limit; page helpers |
+| `e2e/harness.mjs` | anvil on a free port; `createTestChain` deploys `MockCore` and `MockSQK` (from `contracts/test/mocks/Mocks.sol`) and `LightsOn` from `out`, then drives time (`at(round, secs)`: `evm_setNextBlockTimestamp` + `evm_mine`) and the core (`record(through, works)`: `setActive` for running rounds, then `setSettled`); a small web server for `site/` that also serves the **test copy of config.json** at `/config.e2e.json` (anvil's RPC, chain 31337, the deployed addresses, `walkFrom`, `clock: "chain"`) and a fake status API at `/__status` (wheel speed set by the scenario, or an old reading); the **fake wallet**; Chrome launch with the 85 s limit; page helpers |
 | `e2e/reference.mjs` | an independent copy of the settlement rule (written from the spec and `LightsMath.sol`, not from the page's `engine.js`). Before it is trusted it reproduces all 24 vectors in `data/lights-vectors.json` and the 19 nights of `data/rides.json` |
 | `e2e.test.mjs` | the scenarios |
 

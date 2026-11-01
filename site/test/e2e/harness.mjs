@@ -20,7 +20,7 @@ export const ANVIL = process.env.ANVIL || 'anvil';
 export const HERE = dirname(fileURLToPath(import.meta.url));
 export const SITE = join(HERE, '..', '..');
 export const ROOT = join(SITE, '..');
-const OUT = join(ROOT, 'contracts', 'out');
+const OUT = join(ROOT, 'out');
 export const W = 10n ** 18n;
 export const LAUNCH_LIMIT_MS = 85_000; // a cron kills Chrome older than ~2 min; stay well under 90 s
 export const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -65,9 +65,9 @@ export function artifact(file, name) {
   return { bytecode: d.bytecode.object, abi: d.abi, mtime: statSync(p).mtimeMs };
 }
 
-// contracts/out must be built from the current sources (forge build --offline in contracts/)
+// out must be built from the current sources (forge build --offline)
 export function checkBuildFresh() {
-  const src = ['LightsOn.sol', 'LightsMath.sol', 'ISqueek.sol'].map((f) => statSync(join(ROOT, 'contracts', 'src', f)).mtimeMs);
+  const src = ['LightsOn.sol', 'LightsMath.sol', 'ISqueek.sol'].map((f) => statSync(join(ROOT, 'src', f)).mtimeMs);
   const out = artifact('LightsOn.sol', 'LightsOn').mtime;
   return { fresh: out >= Math.max(...src), out, src: Math.max(...src) };
 }

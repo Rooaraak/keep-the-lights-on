@@ -21,7 +21,7 @@ const require = createRequire(import.meta.url);
 const puppeteer = require(process.env.PUPPETEER || 'puppeteer');
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SITE = join(HERE, '..');
-const OUT_DIR = join(SITE, '..', 'contracts', 'out');
+const OUT_DIR = join(SITE, '..', 'out');
 // free ports, picked at start (a fixed port can be held by another local server)
 const freePort = () => new Promise((resolve, reject) => { const s = createServer(); s.on('error', reject); s.listen(0, '127.0.0.1', () => { const p = s.address().port; s.close(() => resolve(p)); }); });
 const WEB = await freePort(), ANVIL = await freePort(), ORIGIN = `http://127.0.0.1:${WEB}`, RPC = `http://127.0.0.1:${ANVIL}`;

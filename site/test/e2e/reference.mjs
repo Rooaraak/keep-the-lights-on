@@ -1,5 +1,5 @@
 // An independent copy of the settlement rule (docs/lights-on-spec.md, settlement v2), written from the spec and
-// contracts/src/LightsMath.sol, NOT from the page's engine.js, so the end-to-end test can hold the page and the
+// src/LightsMath.sol, NOT from the page's engine.js, so the end-to-end test can hold the page and the
 // contract to a third opinion. It is checked against data/lights-vectors.json before it is trusted.
 //
 // A night, from the rounds the core recorded: the departure is the first active round after a blackout (it lights
