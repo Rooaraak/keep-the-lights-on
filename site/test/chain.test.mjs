@@ -144,7 +144,7 @@ eq(threw, 4, 'bad addresses and amounts are refused, not encoded');
 
 // ---------- optional: the real SqueekCore, gently ----------
 if (process.argv.includes('--live')) {
-  const chain = C.createChain({ rpc: ['https://ethereum-sepolia-rpc.publicnode.com', 'https://sepolia.drpc.org'], squeekCore: '0x980b4424c007caf7a1f3670b48c8eaef7ebc3d44' });
+  const chain = C.createChain({ rpc: ['https://ethereum-sepolia-rpc.publicnode.com', 'https://sepolia.gateway.tenderly.co'], squeekCore: '0x980b4424c007caf7a1f3670b48c8eaef7ebc3d44' });
   const st = await chain.core.state();
   const rounds = await chain.core.activeRounds(780, Math.min(st.settledThrough, 900));
   const want = [[791, 489], [792, 648]];
