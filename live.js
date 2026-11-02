@@ -10,7 +10,7 @@ const W = 10n ** 18n;
 const EVERY = { core: 20_000, wheel: 15_000, game: 30_000, mine: 30_000 };
 // how long the page trusts what it saw go through over a node that doesn't show it yet
 const PENDING_MS = 5 * 60_000, ALLOW_MEMO_MS = 10 * 60_000;
-const STEP_LABEL = { check: 'Checking…', catchup: 'Confirm in your wallet', catching: 'Catching up…', allow: 'Allow in your wallet', allowing: 'Allowing…', allowed: 'Waiting for the network…', allowWait: 'Waiting for the network…', bet: 'Confirm in your wallet', betting: 'Placing your bet…', count: 'Confirm in your wallet', counting: 'Counting the ride…', collect: 'Confirm in your wallet', collecting: 'Collecting…' };
+const STEP_LABEL = { check: 'Checking…', catchup: 'Confirm in your wallet', catching: 'Catching up…', allow: 'Allow in your wallet', allowing: 'Allowing…', allowed: 'Waiting for the network…', allowWait: 'Waiting for the network…', bet: 'Confirm in your wallet', betting: 'Placing your bet…', count: 'Confirm in your wallet', counting: 'Counting the ride…', collect: 'Confirm in your wallet', collecting: 'Collecting…', end: 'Confirm in your wallet', ending: 'Ending the game…', flag: 'Confirm in your wallet', flagging: 'Flagging…' };
 
 const short = (a) => `${a.slice(0, 6)}…${a.slice(-4)}`;
 const same = (a, b) => !!a && !!b && a.toLowerCase() === b.toLowerCase();
@@ -91,6 +91,9 @@ export function createLive({ $, setText, setStatus, config, base, onRides, provi
     again: { core: false, wheel: false, game: false, mine: false },
     soon: { core: false, wheel: false, game: false, mine: false }, // a read to try again in a few seconds
     lastDash: -1, timer: null,
+    // end = what the contract said about ending the game { asleepTooLong, stalled, flaggedAt, asleepLocal } (null: no
+    // reason to ask); endBusy = the end box's button label while it works
+    end: null, endBusy: null,
   };
 
   const nowSec = () => Date.now() / 1000 + L.offset;
@@ -183,6 +186,36 @@ export function createLive({ $, setText, setStatus, config, base, onRides, provi
     if (from < snap.betCount) for (const b of await chain.lights.bets(from, snap.betCount)) L.bets.set(b.id, b);
     L.snap = snap;
     regroup();
+    await refreshEnd(snap);
+  }
+
+  // Ending the game (void) or flagging a stalled core: asked of the contract only when the page sees a reason (a core
+  // a day behind, a week without him running, or a flag already up), so a normal visit makes no extra reads.
+  async function refreshEnd(snap) {
+    if (snap.voided || L.S == null || !L.view) { L.end = null; return; }
+    const coreBehind = M.roundAt(nowSec(), L.G) - 1 - L.S > C.STALL_ROUNDS;
+    const asleep = asleepLocally();
+    if (!coreBehind && !asleep && !(L.end && L.end.flaggedAt)) { L.end = null; return; }
+    try { L.end = { ...(await chain.lights.endState()), asleepLocal: asleep }; } catch { /* keep the last answer */ }
+  }
+  // A week (SLEEP_ROUNDS) of recorded rounds without him running, counted from his last running round or the game's
+  // start round, whichever is later, the way the contract counts it.
+  function asleepLocally() {
+    if (L.view.open) return false;
+    const r = L.view.rides[L.view.rides.length - 1];
+    let lastRun = 0;
+    if (r) for (let i = r.w.length - 1; i >= 0; i--) if (r.w[i] > 0) { lastRun = r.start + i; break; }
+    return L.S > Math.max(lastRun, (L.consts && L.consts.startRound) || 0) + C.SLEEP_ROUNDS;
+  }
+  // What the end box offers: 'end' (end the game now), 'flag' (flag the stalled core), 'wait' (flagged: it can be
+  // ended at `at`). A week asleep while the game hasn't read every round yet still offers 'end': the flow reads them first.
+  function endChoice(voided) {
+    const e = L.end;
+    if (!hasGame || voided || !e || !L.snap) return null;
+    if (e.asleepTooLong || (e.asleepLocal && L.snap.walker.cursor < L.S)) return { can: 'end', why: 'asleep' };
+    if (e.flaggedAt) { const at = e.flaggedAt + C.VOID_DELAY; return nowSec() >= at ? { can: 'end', why: 'stall' } : { can: 'wait', why: 'stall', at }; }
+    if (e.stalled) return { can: 'flag', why: 'stall' };
+    return null;
   }
 
   function regroup() {
@@ -320,7 +353,7 @@ export function createLive({ $, setText, setStatus, config, base, onRides, provi
     }
     const collectIds = collect.map((x) => x.id), collectSum = collect.reduce((a, x) => a + x.amount, 0n);
     const result = voided || !L.account ? null : lastResult(collect, collectSum, current, last);
-    return { now, cur, S, N, open, lit, wheel, running, win, started, late, last, sinceOut, potIn, staked, current, mine: voided ? null : mine, collectIds, collectSum, result, voided };
+    return { now, cur, S, N, open, lit, wheel, running, win, started, late, last, sinceOut, potIn, staked, current, mine: voided ? null : mine, collectIds, collectSum, result, voided, end: endChoice(voided) };
   }
 
   // How your last bet went, for the dashboard (until you start picking a new bet) and the sentence under the button:
@@ -563,9 +596,10 @@ export function createLive({ $, setText, setStatus, config, base, onRides, provi
 
   function statusLine(d, { floor, noBulb, recordsLate, pick }) {
     if (L.err.core) return 'Can\'t reach Squeekchain right now. Trying again…';
+    // a game that ended says so first: it can end because Squeekchain stalled, so "records late" must not hide it
+    if (d.voided) return d.collectIds.length ? 'This game has ended. Collect your refunds.' : 'This game has ended.';
     if (L.paused) return 'Squeekchain has paused its records. The lights wait until it starts again.';
     if (recordsLate) return `Squeekchain's records are running late (the last one is ${d.late} rounds old), so the page waits before offering bulbs.`;
-    if (d.voided) return d.collectIds.length ? 'This game has ended. Collect your refunds.' : 'This game has ended.';
     const out = d.sinceOut != null && d.sinceOut <= 6 && d.last ? `Blackout after ${bulbs(d.last.lit)}. ` : '';
     // winnings waiting while the button is about your bet on this ride, or the bet you are choosing
     const r = d.result, waiting = d.collectIds.length ? `${sqkText(d.collectSum)} SQK from ${r && r.many > 1 ? 'earlier rides' : r && r.isLast ? 'your last ride' : 'an earlier ride'} is waiting for you.` : '';
@@ -832,7 +866,7 @@ export function createLive({ $, setText, setStatus, config, base, onRides, provi
       updateDash(d);
       setText('caption', caption(d));
       showMeter(meterFor(d));
-      if (!d.loading) renderLists(d);
+      if (!d.loading) { renderLists(d); renderEnd(d); }
       $('liveDot').dataset.on = String(!d.loading && !L.err.core);
     }
     if (d.loading) {
@@ -917,7 +951,7 @@ export function createLive({ $, setText, setStatus, config, base, onRides, provi
 
   // the main button; want = 'collect': the Collect link in the sentence under it
   async function act(want) {
-    if (!hasGame || L.busy) return;
+    if (!hasGame || L.busy || L.endBusy) return;
     if (!L.snap) { refreshAll(); return; }
     if (!wallet) return noWallet();
     try {
@@ -936,6 +970,7 @@ export function createLive({ $, setText, setStatus, config, base, onRides, provi
         await refreshMine();
         return;
       }
+      if (want === 'connect') return;
       // busy at once: a second tap while the page looks at the wallet's test ETH must not start a second bet
       L.busy = 'Checking…'; L.lastDash = -1;
       const d = derive();
@@ -1065,6 +1100,55 @@ export function createLive({ $, setText, setStatus, config, base, onRides, provi
     }
   }
 
+  // The end box: shown only when the game may be ended or a stalled core may be flagged (never in a normal night).
+  function renderEnd(d) {
+    const box = $('endBox'), e = d.end;
+    box.hidden = !e;
+    if (!e) return;
+    const when = (t) => `${day(new Date(t * 1000))}, ${hhmm(new Date(t * 1000))}`;
+    setText('endText', e.why === 'asleep'
+      ? 'He hasn\'t run for 7 days. Anyone can end the game now: nights that already ended keep their results, and every other bet, and the bonus pot, can be collected back.'
+      : e.can === 'flag' ? 'Squeekchain hasn\'t recorded a round for over a day. Anyone can flag that. If it is still stuck 24 hours after the flag, the game can be ended and every open bet comes back.'
+        : e.can === 'wait' ? `Flagged: Squeekchain stopped recording rounds. If it is still stuck on ${when(e.at)} your time, anyone can end the game and every open bet comes back.`
+          : 'Squeekchain has been stuck for a day since the flag. Anyone can end the game now, and every open bet comes back. If it has started recording again, this only clears the flag and the game goes on.');
+    const btn = $('endBtn');
+    btn.hidden = e.can === 'wait';
+    setText('endBtn', L.endBusy || (!L.account ? 'Connect your wallet' : L.chainOk === false ? 'Switch to Sepolia' : e.can === 'flag' ? 'Flag the stall' : 'End the game'));
+    btn.disabled = !!(L.endBusy || L.busy);
+  }
+
+  async function endAct() {
+    const d = derive();
+    if (!d.end || d.end.can === 'wait' || L.busy || L.endBusy) return;
+    if (!wallet) return noWallet();
+    if (!L.account || !L.chainOk) return act('connect'); // connect (or switch network) first; the next tap ends it
+    const action = d.end.can === 'flag' ? 'flag' : 'end';
+    try {
+      L.endBusy = 'Checking…'; L.lastDash = -1;
+      const r = await C.endGame({
+        chain, wallet, account: L.account, action,
+        onStep: (s) => {
+          L.endBusy = STEP_LABEL[s] || L.endBusy; L.lastDash = -1;
+          if (s === 'catchup') say('First the game reads his latest rounds. Your wallet asks once for that.', null, 600_000);
+          if (s === 'count') say('First the game counts the rides that ended. Your wallet asks once for that.', null, 600_000);
+          if (s === 'end') say('End the game. Your wallet will ask.', null, 600_000);
+          if (s === 'flag') say('Flag the stall. Your wallet will ask.', null, 600_000);
+        },
+      });
+      if (r.flagged) say('Flagged. If Squeekchain is still stuck a day from now, anyone can end the game.', r.hash, 30_000);
+      else if (r.ended) say('This game has ended. Collect your refunds.', r.hash, 30_000);
+      else say('Squeekchain is recording rounds again, so the flag was cleared and the game goes on.', r.hash, 30_000);
+      L.end = null;
+    } catch (e) {
+      const x = C.explain(e);
+      if (x.kind === 'gas') sayEth(); else say(x.text, e.hash || null, x.kind === 'timeout' ? 60_000 : 20_000);
+    } finally {
+      L.endBusy = null; L.lastDash = -1;
+      for (const k of ['game', 'mine']) schedule(k);
+      loop();
+    }
+  }
+
   // Rehearsal only (config.practice): the practice token gives 1,000 to anyone who asks; one wallet confirmation.
   async function getPractice() {
     if (!wallet || !L.account || L.busy) return;
@@ -1091,6 +1175,7 @@ export function createLive({ $, setText, setStatus, config, base, onRides, provi
 
   async function start() {
     if (wallet && config.practice) $('faucet').addEventListener('click', getPractice);
+    if (hasGame) $('endBtn').addEventListener('click', endAct);
     if (wallet) {
       // another account or network: what the sentence under the button said was about the old one
       const forget = () => { if (!L.busy) { L.msg = null; $('status').dataset.key = ''; } L.lastDash = -1; };
