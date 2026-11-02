@@ -157,6 +157,7 @@ function startPage(provider, cfg = config) {
 }
 const dash = (pg) => ({ you: pg.t('youState'), youSub: pg.t('youSub'), ml: pg.t('moneyLabel'), money: pg.t('money'), ms: pg.t('moneySub'), act: pg.t('act'), off: pg.$('act').disabled, odds: pg.t('pickOdds'), pickHidden: pg.$('pickRow').hidden, wallet: pg.t('walletLine'), status: pg.t('status') });
 const show = (x) => JSON.stringify(x);
+const meter = (pg) => ({ hidden: pg.$('meter').hidden, text: pg.t('meterText'), tone: pg.$('meter').dataset.tone });
 
 let pg = null;
 try {
@@ -207,6 +208,8 @@ try {
   d = dash(pg);
   const { state: L1 } = pg.live.debug();
   ok(d.act === 'Bet placed' && d.off && d.you === 'Bulb 6' && /you have 900 SQK/.test(d.wallet) && ![...L1.bets.values()].some((b) => b.local), 'and still shows the same bet and 900 SQK', show(d));
+  const sh = pg.$('share'), shText = decodeURIComponent((sh.href.match(/text=([^&]*)/) || [])[1] || '');
+  ok(!sh.hidden && pg.t('share') === 'Share my bet on X' && /^https:\/\/x\.com\/intent\/post\?/.test(sh.href) && /I bet 100 SQK that Squeektoshi the hamster lights bulb 6 on his next ride/.test(shText) && /[?&]url=https/.test(sh.href), 'a placed bet can be shared: "Share my bet on X", a ready post "I bet 100 SQK that Squeektoshi the hamster lights bulb 6 on his next ride…" with the page\'s link', show({ hidden: sh.hidden, label: pg.t('share'), text: shText }));
   ok((await c.allBets()).filter((b) => b.owner.toLowerCase() === me.toLowerCase()).length === 1, 'one bet on chain');
 
   // ---------------------------------------------------------------- 3. his ride: the line above the button
@@ -224,6 +227,8 @@ try {
   ok(lit49 === 4, 'his ride: 4 bulbs lit through round 49', String(lit49));
   ok(/^Bulb 6 · about 20 min more · /.test(d.odds), `while he runs, the line is about your bulb 6 and the time still to run: "${d.odds}"`, d.odds);
   ok(pg.frames.last.msg === 'HE IS RUNNING * NEXT: BULB 5' && !pg.frames.last.flicker, 'the board: "HE IS RUNNING * NEXT: BULB 5"', pg.frames.last.msg);
+  let mt = meter(pg);
+  ok(!mt.hidden && /^Bulb 5 lights in [89]:\d\d$/.test(mt.text) && mt.tone === 'run', 'the countdown under the board: "Bulb 5 lights in 9:xx" (round 50 ends in about 9 minutes)', show(mt));
 
   // ---------------------------------------------------------------- 3b. a quiet round, then he is back on the wheel
   // rounds 50-53 light bulbs 5-8, round 54 is quiet (his real night), and the wheel turns again right now
@@ -234,6 +239,8 @@ try {
   await sleep(400);
   let v = pg.frames.last;
   ok(v.lit === 8 && v.msg === 'HE IS BACK ON THE WHEEL * NEXT: BULB 9' && !v.flicker && !v.resting, 'a quiet round is recorded but the wheel turns again (the cam shows him running): "HE IS BACK ON THE WHEEL * NEXT: BULB 9", no flicker', show(v));
+  mt = meter(pg);
+  ok(!mt.hidden && /^Bulb 9 lights in [89]:\d\d$/.test(mt.text) && mt.tone === 'run', 'back on the wheel after a break: "Bulb 9 lights in 9:xx"', show(mt));
   st.wheel = 0;
   pg.live.refresh();
   ok(await pg.until(() => pg.frames.last.flicker, 20_000), 'waited for the board flickers (a break)', show(dash(pg)));
@@ -409,6 +416,7 @@ try {
   await sleep(400);
   d = dash(pg);
   ok(/^Your bulb 20 stayed dark on his last ride: you lost your 100 SQK\. To bet on his next ride, pick a bulb\.$/.test(d.status) && d.money === '−100 SQK' && d.ml === 'Last ride', 'two hours later: "Your bulb 20 stayed dark on his last ride: you lost your 100 SQK." and still "Last ride −100 SQK"', show(d));
+  ok(pg.$('meter').hidden, 'he is asleep: no countdown under the board', show(meter(pg)));
   ok(!JARGON.test(d.status + d.you + d.youSub + d.ml + d.ms), 'plain words');
   pg.live.plus();
   await sleep(400);
@@ -466,6 +474,8 @@ try {
   let d = dash(pg);
   // the round in progress is quiet so far: tonight if he runs again, else his next ride
   ok(/^He stopped for a moment\. A bet now counts for this ride, or for his next ride if the lights go out\. Bulb 7 or higher\.$/.test(d.status) && d.youSub === 'for tonight, or his next ride if the lights go out', 'quiet so far in this round: "…for this ride, or for his next ride if the lights go out."', show(d));
+  let mt = meter(pg);
+  ok(!mt.hidden && /^He stopped: bulb 5 still lights if he runs again in the next 9:\d\d$/.test(mt.text) && mt.tone === 'wait', 'the countdown: "He stopped: bulb 5 still lights if he runs again in the next 9:xx"', show(mt));
   // he runs (the page sees it), then stops
   st.wheel = 480; pg.live.refresh();
   ok(await pg.until(() => /^He is running\./.test(pg.t('status')), 30_000) && pg.t('youSub') === "for tonight's ride", 'he runs: "He is running…", for tonight\'s ride', show(dash(pg)));
@@ -475,6 +485,8 @@ try {
   d = dash(pg);
   ok(/^He stopped for a moment\. A bet now counts for this ride: if he stays asleep, the lights go out and your bulb stays dark\. Bulb 7 or higher\.$/.test(d.status) && d.youSub === "for tonight's ride", 'he ran in this round: "A bet now counts for this ride: if he stays asleep, the lights go out and your bulb stays dark." (no promise of his next ride)', show(d));
   ok(pg.frames.last.msg === 'SHORT BREAK * LIGHTS FLICKER' && pg.frames.last.flicker, 'the board: "SHORT BREAK * LIGHTS FLICKER"', show(pg.frames.last));
+  mt = meter(pg);
+  ok(!mt.hidden && /^Bulb 5 lights in \d:\d\d$/.test(mt.text) && mt.tone === 'run', 'he ran in this round, then stopped: the round has his turns, so "Bulb 5 lights in m:ss"', show(mt));
   await pg.live.act();
   ok(await pg.until(() => /^Bet placed/.test(pg.t('status')), 30_000) && pg.t('status') === "Bet placed: 100 SQK on bulb 7, for tonight's ride.", '"Bet placed: 100 SQK on bulb 7, for tonight\'s ride."', pg.t('status'));
   const mineBet = (await c.allBets()).find((b) => b.owner.toLowerCase() === pa.toLowerCase());

@@ -235,6 +235,10 @@ async function S2(ctx) {
         // two players bet in the departure round: bulb 2 counts, bulb 1 (lights in the next round) is given back
         ctx.ids.p5 = (await c.betDirect(p5, 2, 100n * W)).betId;
         ctx.ids.p6 = (await c.betDirect(p6, 1, 100n * W)).betId;
+        // someone else's new bet: news on the sign while nothing else happens on the ride (the next round's news wins)
+        await P.refresh({ bets: ctx.ids.p6 + 1 });
+        const nb = await P.waitBoard((x) => /^NEW BET \* BULB [12] \* 100 SQK$/.test(x.msg), 8000);
+        check(!!nb, 'S2: a new bet from someone else shows on the sign: "NEW BET * BULB 1 * 100 SQK"', nb && nb.msg);
       }
       if (r === 45) check(st.open && st.open.start === 45 && st.lit === 0 && b.msg === 'HE IS ON THE WHEEL * WARMING UP', 'S2: round 45 recorded: the ride is on, warming up, no bulb yet', JSON.stringify({ open: st.open, msg: b && b.msg }));
       if (ref.open && r > 45) {

@@ -252,11 +252,22 @@ async function pagingScenario(browser, opts, tag) {
     await sleep(400);
     check(!!(await pt(1)) && !!(await pt(P)) && !(await pt(P + 1)), `${tag} pages: the row starts on page 1 (bulbs 1-${P}); bulb ${P + 1} is not on it`);
     await page.waitForFunction((n) => Number((document.getElementById('board').getAttribute('aria-label').match(/(\d+) lit/) || [])[1] || 0) >= n, { timeout: 40_000, polling: 100 }, P + 1).catch(() => {});
-    await sleep(1000);
-    check(!!(await pt(P + 1)) && !(await pt(1)), `${tag} pages: after bulb ${P} the row turned to page 2 (bulb ${P + 1} on the board, bulb 1 not)`, String(await litNow()));
+    // the row turns once bulb P has visibly switched on (at 4x the switch-on runs behind the count), and a moment more
+    let turned = false;
+    for (let i = 0; i < 40 && !turned; i++) { turned = !!(await pt(P + 1)) && !(await pt(1)); if (!turned) await sleep(200); }
+    check(turned, `${tag} pages: after bulb ${P} the row turned to page 2 (bulb ${P + 1} on the board, bulb 1 not)`, String(await litNow()));
     await page.waitForFunction(() => !document.getElementById('results').hidden, { timeout: 40_000 }).catch(() => {});
     await sleep(4000);
     check(!!(await pt(1)) && !(await pt(P + 1)), `${tag} pages: after the blackout the lights went out back to page 1`, String(await litNow()));
+    // his last nights: up to 5, newest first, each with a strip of 24 dots (as many lit as the night's bulbs); a tap replays it
+    const nights = await page.$$eval('#lastNights .night', (rs) => rs.map((r) => ({ when: r.querySelector('.when').textContent, n: r.querySelector('.n').textContent, on: r.querySelectorAll('.strip i.on').length, dots: r.querySelectorAll('.strip i').length })));
+    check(nights.length === 5 && nights.every((x) => x.dots === 24 && Number(x.n.split(' ')[0]) === x.on), `${tag} last nights: 5 nights, each with 24 dots and its lit bulbs`, JSON.stringify(nights));
+    await page.click('#modeLive');
+    await sleep(300);
+    await page.click('#lastNights .night:nth-child(2)');
+    await sleep(600);
+    const picked = await page.evaluate(() => ({ mode: window.lightsPage.mode(), ride: document.getElementById('ride').selectedOptions[0].textContent }));
+    check(picked.mode === 'replay' && picked.ride.includes(nights[1].n), `${tag} last nights: a tap on a night replays it`, JSON.stringify(picked));
     check(errors.length === 0, `${tag} pages: no console errors`, errors.join(' | '));
   } finally { await page.close(); }
 }

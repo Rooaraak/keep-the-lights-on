@@ -25,6 +25,10 @@
     </div>
     <h1 id="title" class="sr-only">Keep the Lights On</h1>
     <div class="sign"><canvas id="sign" aria-hidden="true"></canvas></div>
+    <div class="stage">
+      <div class="cam"><canvas id="cam" role="img" aria-label="Hamster cam: Squeektoshi in his wheel, and the big bulb his running powers"></canvas><span class="cam-tag" id="camTag" data-mode="live" aria-hidden="true">Live</span></div>
+      <p class="lede">Bet on how many bulbs Squeektoshi lights tonight.</p>
+    </div>
   </header>
 
   <main class="main">
@@ -43,6 +47,7 @@
 
     <p class="banner" id="banner" role="status" hidden></p>
     <div class="board-wrap"><canvas id="board" role="img" aria-label="LED board: Squeektoshi's wheel powers a string of numbered bulbs"></canvas></div>
+    <div class="meter" id="meter" data-tone="run" hidden><div class="meter-track"><i id="meterFill"></i></div><span id="meterText" aria-live="off"></span></div>
     <p class="caption" id="caption">Connecting to Squeekchain…</p>
 
     <div class="dash">
@@ -83,6 +88,7 @@
     </div>
     <p class="hint" id="status" aria-live="polite"></p>
     <p class="wallet-line" id="walletLine" hidden></p>
+    <a class="share" id="share" href="#" target="_blank" rel="noopener" hidden>Share my bet on X</a>
     <button type="button" class="ghost" id="faucet" hidden>Get 1,000 practice SQK</button>
   </section>
 
@@ -119,10 +125,6 @@
         <p>As soon as the lights go out. Press Collect: it counts the ride and pays you in one go (after a long quiet spell your wallet may ask one extra time, to finish counting). Winnings never expire, so there is no rush. A lit bulb can get back less than its bet on a long night, when the higher bulbs take most of the pot.</p></details>
       <details><summary>How is this connected to the real hamster?</summary>
         <p>Squeektoshi's wheel has a sensor. Every 10 minutes Squeekchain writes how many turns he ran onto its blockchain, where nobody can change it. The lights only follow those records: turns light the next bulb, no turns make them flicker, 20 minutes without turns is a blackout. The wheel on the board shows his speed right now, which can run a few minutes ahead of the records.</p></details>
-      <details><summary>How far does he usually get?</summary>
-        <div class="odds" id="odds" role="img" aria-label="Share of his real nights that lit each bulb"></div>
-        <div class="odds-axis"><span>bulb 1</span><span>bulb 10</span><span>bulb 21</span></div>
-        <p id="oddsNote"></p></details>
       <details><summary>Is this real money?</summary>
         <p>No. The game uses Squeekchain's test SQK on the Sepolia test network (the rehearsal uses its own practice SQK), which has no money value. 2% of the lost bets and of any bonus pot is burned, and nothing in the game wakes him or rewards running faster. Naps are good.</p></details>
     </div>
@@ -131,13 +133,17 @@
   </main>
 
   <aside class="side">
-    <div class="stage">
-      <div class="cam"><canvas id="cam" role="img" aria-label="Hamster cam: Squeektoshi in his wheel, and the big bulb his running powers"></canvas><span class="cam-tag" id="camTag" data-mode="live" aria-hidden="true">Live</span></div>
-      <p class="lede">Bet on how many bulbs Squeektoshi lights tonight.</p>
-    </div>
     <section class="panel" id="playersPanel">
       <h2 id="playersTitle">Tonight's bets</h2>
       <div class="riders" id="riders"></div>
+    </section>
+    <section class="panel" id="nightsPanel">
+      <h2>His last nights</h2>
+      <div class="nights" id="lastNights"></div>
+      <span class="label">How far he gets</span>
+      <div class="odds" id="odds" role="img" aria-label="Share of his real nights that lit each bulb"></div>
+      <div class="odds-axis"><span>bulb 1</span><span>bulb 10</span><span>bulb 21</span></div>
+      <p class="odds-note" id="oddsNote"></p>
     </section>
   </aside>
 

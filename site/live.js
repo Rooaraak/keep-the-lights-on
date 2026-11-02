@@ -474,6 +474,8 @@ export function createLive({ $, setText, setStatus, config, base, onRides, provi
     const wl = $('walletLine');
     wl.hidden = !(hasGame && L.account);
     if (!wl.hidden) setText('walletLine', L.chainOk === false ? `${short(L.account)} · your wallet is on another network` : `${short(L.account)} · you have ${L.balance == null ? '…' : sqkText(L.balance)} ${config.practice ? 'practice ' : ''}SQK`);
+    // share your bet, or your win, on X (a ready-made post with the page's link)
+    shareLink(d);
     // the rehearsal's practice token has an open tap: offer it while the wallet holds less than 1,000
     const fb = $('faucet'), tap = !wl.hidden && practiceTap();
     if (fb.hidden === tap) fb.hidden = !tap;
@@ -487,6 +489,27 @@ export function createLive({ $, setText, setStatus, config, base, onRides, provi
     if (practiceUrl && hasGame && L.account && L.chainOk && L.balance === 0n && !d.mine && !d.voided && !d.collectIds.length) return showMessage(noSqkMessage());
     const line = statusLine(d, { floor, noBulb, recordsLate, pick });
     if (typeof line === 'string') setStatus(line); else showMessage(line, false);
+  }
+
+  // The "Share on X" link: your bet while it waits or runs, or your win until it is collected. Nothing else.
+  const pageUrl = () => (typeof location !== 'undefined' && location.origin ? `${location.origin}${location.pathname}${location.search}` : 'https://rooaraak.github.io/keep-the-lights-on/');
+  function shareLink(d) {
+    const el = $('share'), unit = config.practice ? 'practice SQK' : 'SQK';
+    let text = null, label = null;
+    if (hasGame && L.account && d.mine && !d.voided) {
+      const b = d.mine, when = d.open ? 'tonight' : 'on his next ride';
+      text = `I bet ${sqkText(b.stake)} ${unit} that Squeektoshi the hamster lights bulb ${b.bulb} ${when} 🐹💡 Keep the lights on:`;
+      label = 'Share my bet on X';
+    } else if (hasGame && L.account && resultShown(d) && d.result && !d.result.lost && !d.result.refund && d.result.amount > d.result.stake) {
+      const r = d.result;
+      text = `Squeektoshi the hamster lit bulb ${r.bet.bulb} and my ${sqkText(r.stake)} ${unit} came back as ${sqkText(r.amount)} 🐹💡 Keep the lights on:`;
+      label = 'Share my win on X';
+    }
+    if (!text) { if (!el.hidden) el.hidden = true; return; }
+    const href = `https://x.com/intent/post?text=${encodeURIComponent(text)}&url=${encodeURIComponent(pageUrl())}`;
+    if (el.href !== href) el.href = href;
+    setText('share', label);
+    if (el.hidden) el.hidden = false;
   }
 
   // No test ETH for the network fees: what it is for, that it's free, and a link to a faucet if the settings name one.
@@ -707,6 +730,51 @@ export function createLive({ $, setText, setStatus, config, base, onRides, provi
     return r;
   }
 
+  // The countdown under the board: how long the round has left, and what its end decides (a bulb, a break, the
+  // blackout). Shown while a ride is on (or he just got on); hidden while he sleeps, when the records run late or the
+  // game has ended. { frac 0..1 into the round (or the warm-up's two rounds), text, tone: run | wait | danger }
+  const mmss = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+  function meterFor(d) {
+    if (!d || d.loading || d.voided || L.paused || d.late > 4 || !L.G) return null;
+    const G = L.G, now = d.now, cur = d.cur, left = Math.max(0, M.roundStart(cur + 1, G) - now);
+    const frac = Math.min(1, Math.max(0, 1 - left / M.ROUND_SECONDS));
+    const known = M.knownActive(L.seen, G, d.S, L.coreCum);
+    const activeNow = d.running === true || known.has(cur);
+    if (d.open) {
+      if (cur - d.open.start + 1 > L.station) return null;   // the night ends at its 6-hour limit
+      if (d.win.mayBeOut && !activeNow) return { frac, text: 'Two quiet rounds: the lights may be out. Waiting for Squeekchain\'s record.', tone: 'danger' };
+      // bulbs on their way: rounds that ended with his turns but aren't on the chain yet
+      let pending = 0;
+      for (let r = d.S + 1; r < cur; r++) if (known.has(r)) pending++;
+      const next = d.lit + pending + 1;
+      if (next > 24) return null;
+      if (cur - d.open.start + 1 === L.station) return { frac, text: `Last round of the night (6 hours): ${activeNow ? `bulb ${next} lights in ${mmss(left)}` : `${mmss(left)} left`}`, tone: activeNow ? 'run' : 'wait' };
+      if (activeNow) return { frac, text: `Bulb ${next} lights in ${mmss(left)}`, tone: 'run' };
+      // he stopped in this round: it is a break unless he runs again before it ends; after a quiet round, the blackout
+      const prev = cur - 1, quietBefore = prev <= d.S ? prev === d.S && d.open.idleRun > 0 : !known.has(prev);
+      if (quietBefore) return { frac, text: `Lights out in ${mmss(left)} unless he runs again`, tone: 'danger' };
+      return { frac, text: `He stopped: bulb ${next} still lights if he runs again in the next ${mmss(left)}`, tone: 'wait' };
+    }
+    if (d.started || d.running) {
+      // no ride recorded yet: the first round with his turns is the warm-up, bulb 1 lights at the end of the next one
+      let dep = null;
+      for (const r of known) if (r > d.S && r <= cur && (dep == null || r < dep)) dep = r;
+      if (dep == null) dep = cur;
+      const end = M.roundStart(dep + 2, G), t = Math.max(0, end - now);
+      return { frac: Math.min(1, Math.max(0, 1 - t / (2 * M.ROUND_SECONDS))), text: `Bulb 1 lights in ${mmss(t)} if he keeps running`, tone: activeNow ? 'run' : 'wait' };
+    }
+    return null;
+  }
+  function showMeter(m) {
+    const el = $('meter');
+    if (el.hidden !== !m) el.hidden = !m;
+    if (!m) return;
+    setText('meterText', m.text);
+    if (el.dataset.tone !== m.tone) el.dataset.tone = m.tone;
+    const fill = $('meterFill'), v = m.frac.toFixed(3);
+    if (fill.dataset.p !== v) { fill.dataset.p = v; if (fill.style) fill.style.transform = `scaleX(${v})`; }
+  }
+
   function caption(d) {
     if (d.loading) return L.err.core ? 'Can\'t reach Squeekchain right now. Trying again…' : 'Connecting to Squeekchain…';
     const clock = hhmm(new Date(d.now * 1000));
@@ -731,6 +799,7 @@ export function createLive({ $, setText, setStatus, config, base, onRides, provi
       L.lastDash = time;
       updateDash(d);
       setText('caption', caption(d));
+      showMeter(meterFor(d));
       if (!d.loading) renderLists(d);
       $('liveDot').dataset.on = String(!d.loading && !L.err.core);
     }
@@ -776,8 +845,24 @@ export function createLive({ $, setText, setStatus, config, base, onRides, provi
     // (no ride recorded yet, but he got on the wheel and stopped: a short break too, so the cam shows him awake)
     const flicker = (!!d.open && (!back || maybeOut) && (d.open.idleRun > 0 || d.running === false || maybeOut)) || (!d.open && d.started && d.running === false);
     const pace = d.wheel && d.wheel.running ? Math.max(120, d.wheel.rpm * 10) : !resting && d.open ? d.open.w[d.open.w.length - 1] || 300 : 0;
+    // Someone else's new bet (not one there when the page opened, not yours): news on the sign for a few seconds, but
+    // only while nothing happens on the ride. News from the ride (a bulb, a stop, a start, a blackout) wins at once.
+    const rideSig = `${openStart}|${d.lit}|${d.running}|${d.open ? d.open.idleRun : ''}|${d.started}|${justOut}`;
+    if (rideSig !== L.rideSig) { L.rideSig = rideSig; L.betNews = null; }
+    if (L.snap) {
+      const ids = [...L.bets.keys()];
+      if (L.betsSeen == null) L.betsSeen = new Set(ids);
+      else for (const id of ids) if (!L.betsSeen.has(id)) {
+        L.betsSeen.add(id);
+        const b = L.bets.get(id);
+        if (b && !b.local && !(L.account && same(b.owner, L.account))) L.betNews = { text: `NEW BET * BULB ${b.bulb} * ${sqkText(b.stake)} SQK`, until: time + 8 };
+      }
+    }
+    const calm = !justOut && !flicker && !maybeOut && !(d.open && d.lit === 0);
+    const news = calm && L.betNews && time < L.betNews.until ? L.betNews.text : null;
     let msg;
     if (d.voided) msg = 'THIS GAME HAS ENDED * COLLECT YOUR BETS BELOW';
+    else if (news) msg = news;
     else if (justOut) msg = `BLACKOUT ${d.last.lit ? `AFTER ${bulbs(d.last.lit).toUpperCase()}` : 'BEFORE BULB 1'} * ${d.running ? 'HE IS BACK ON THE WHEEL * LIGHTS ON SOON' : d.started ? 'SHORT BREAK * LIGHTS ON SOON' : 'SWEET DREAMS'}${potN ? ` * BONUS POT ${potN} ROLLS ON` : ''}`;
     else if (d.open && d.lit === 0 && !flicker) msg = 'HE IS ON THE WHEEL * WARMING UP';
     else if (maybeOut && d.running) msg = back ? 'HE IS BACK ON THE WHEEL' : 'HE IS RUNNING';
@@ -993,13 +1078,13 @@ export function createLive({ $, setText, setStatus, config, base, onRides, provi
       for (const id of ['b50', 'b100', 'b200']) $(id).setAttribute('aria-pressed', String($(id).dataset.bet === L.amountText));
       $('amtOther').value = ['50', '100', '200'].includes(L.amountText) ? '' : L.amountText;
       Board.resetAnimations();
-      L.lastLit = null; L.lastOpen = null;
+      L.lastLit = null; L.lastOpen = null; L.betsSeen = null; L.betNews = null; L.rideSig = null;
       $('status').dataset.key = '';
       // the replay drew its pretend players into the same list: draw the live bets again
       $('riders').textContent = ''; $('riders').dataset.key = ''; $('mine').dataset.key = '';
       loop();
     },
-    exit() { L.active = false; },
+    exit() { L.active = false; $('meter').hidden = true; },
     view,
     minus() { const d = derive(); if (!d.loading && !d.mine && !d.voided) { moveOn(d); L.pick = Math.max(d.win.floor, shown(d) - 1); Board.sfx.tick(); L.lastDash = -1; } },
     plus() { const d = derive(); if (!d.loading && !d.mine && !d.voided) { moveOn(d); L.pick = Math.min(24, shown(d) + 1); Board.sfx.tick(); L.lastDash = -1; } },
