@@ -324,7 +324,7 @@ function isRateLimit(error) {
 // config: { chainId, rpc: [urls], squeekCore, sqk, lightsOn, deployBlock, statusApi?, explorer? }
 export function createChain(config, { fetchFn = globalThis.fetch?.bind(globalThis), timeoutMs } = {}) {
   const rpc = createRpc(config.rpc, { fetchFn, timeoutMs });
-  const call = (to, data, from) => rpc.request('eth_call', [from ? { from, to, data } : { to, data }, 'latest']);
+  const call = (to, data, from, gas) => rpc.request('eth_call', [{ ...(from ? { from } : {}), to, data, ...(gas ? { gas: '0x' + Number(gas).toString(16) } : {}) }, 'latest']);
   const calls = async (list) => {
     const res = await rpc.batch(list.map(([to, data]) => ({ method: 'eth_call', params: [{ to, data }, 'latest'] })));
     return res.map((r) => { if (r.error) throw r.error; return r.result; });
@@ -402,6 +402,8 @@ export function createChain(config, { fetchFn = globalThis.fetch?.bind(globalThi
           for (const l of logs) out.push(decode.betPlaced(l));
           from = to + 1;
         } catch (e) {
+          // a node that pruned old history ("pruned history unavailable") answers the same for any smaller range
+          if (/prun|history|not available|unavailable/i.test(String(e && (e.message || e)))) return null;
           if (size <= 500) return null;
           size = Math.floor(size / 2);
         }
@@ -543,6 +545,16 @@ export const GAS = { bet: 1_500_000, claimBase: 1_000_000, claimPerBet: 30_000 }
 // after the allow step: how often, and how far apart, to look again for a node that hasn't seen it yet
 export const ALLOW_LAG = { tries: 6, everyMs: 2500 };
 const claimGas = (n) => GAS.claimBase + GAS.claimPerBet * n;
+// The gas a bet or collect goes out with: the network's own estimate plus a quarter, never below the fixed limit above
+// (that covers a blackout recorded between the estimate and the block). The fixed limits alone were too low on
+// today's Sepolia when the game has many rounds to read first (a returning bettor ~2.6M, a late collect ~1.1M); the
+// estimate sees that, including a core read that would starve. Capped well under a block.
+export async function sendGas(chain, from, to, data, floor) {
+  try {
+    const est = Number(BigInt(await chain.rpc.request('eth_estimateGas', [{ from, to, data }])));
+    return Math.min(Math.max(floor, Math.ceil(est * 1.25)), 15_000_000);
+  } catch { return floor; }
+}
 // helpers (poke, settle): the estimate with room for rounds recorded meanwhile, or the wallet's own estimate
 async function helperGas(chain, from, to, data) {
   try {
@@ -668,7 +680,7 @@ export async function placeBet({ chain, wallet, account, bulb, amount, lastRound
   if (typeof again === 'number' && last != null && typeof last !== 'function') last = again;
   onStep('bet', { bulb, amount });
   const tx = data();
-  const hash = await wallet.send(account, game, tx, { gas: GAS.bet });
+  const hash = await wallet.send(account, game, tx, { gas: await sendGas(chain, account, game, tx, GAS.bet) });
   onStep('betting', { hash });
   const r = await wallet.waitReceipt(hash, waitOpts);
   if (r.timeout) throw Object.assign(new Error('still waiting'), { code: 'TIMEOUT', hash });
@@ -715,7 +727,7 @@ export async function collect({ chain, wallet, account, ids, onStep = () => {}, 
   }
   if (done === 0) throw Object.assign(new Error('nothing ready'), { code: 'NOT_READY' });
   onStep('collect', { count: done });
-  const hash = await wallet.send(account, game, data, { gas: claimGas(ids.length) });
+  const hash = await wallet.send(account, game, data, { gas: await sendGas(chain, account, game, data, claimGas(ids.length)) });
   onStep('collecting', { hash });
   const r = await wallet.waitReceipt(hash, waitOpts);
   if (r.timeout) throw Object.assign(new Error('still waiting'), { code: 'TIMEOUT', hash });

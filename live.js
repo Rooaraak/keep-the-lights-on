@@ -195,6 +195,18 @@ export function createLive({ $, setText, setStatus, config, base, onRides, provi
       // a failed look-up is tried again (an earlier win must not stay hidden until a reload): the first times a few
       // seconds later, then with the other reads; after 10 tries the page makes do with the bets it reads anyway
       L.logTries = (L.logTries || 0) + 1;
+      // the logs can't be read (most public nodes keep only about two days of them): read the game's earlier bets
+      // directly instead, a page at a time, and keep this wallet's (an uncollected win must not vanish from Collect)
+      if (!logs && L.logTries >= 2 && L.startIdx > 0 && !L.scannedOld) {
+        L.scannedOld = true;
+        for (let from = Math.max(0, L.startIdx - 2000); from < L.startIdx; from += 100) {
+          const list = await chain.lights.bets(from, Math.min(L.startIdx, from + 100)).catch(() => null);
+          if (!same(me, L.account)) return;
+          if (!list) { L.scannedOld = false; break; }
+          for (const b of list) if (same(b.owner, me) && !L.my.has(b.id)) L.my.set(b.id, { bet: b });
+        }
+        if (L.scannedOld) L.myLogs = true;
+      }
       if (logs || !Number(config.deployBlock) || L.logTries >= 10) L.myLogs = true;
       else if (L.logTries < 4) L.soon.mine = true;
     }
@@ -742,7 +754,8 @@ export function createLive({ $, setText, setStatus, config, base, onRides, provi
     const activeNow = d.running === true || known.has(cur);
     if (d.open) {
       if (cur - d.open.start + 1 > L.station) return null;   // the night ends at its 6-hour limit
-      if (d.win.mayBeOut && !activeNow) return { frac, text: 'Two quiet rounds: the lights may be out. Waiting for Squeekchain\'s record.', tone: 'danger' };
+      // two quiet rounds may have put the lights out (the record isn't in yet): no bulb promised, even if he runs now
+      if (d.win.mayBeOut) return { frac, text: activeNow ? 'He is running, but the lights may have gone out: waiting for Squeekchain\'s record.' : 'Two quiet rounds: the lights may be out. Waiting for Squeekchain\'s record.', tone: activeNow ? 'wait' : 'danger' };
       // bulbs on their way: rounds that ended with his turns but aren't on the chain yet
       let pending = 0;
       for (let r = d.S + 1; r < cur; r++) if (known.has(r)) pending++;
@@ -888,7 +901,7 @@ export function createLive({ $, setText, setStatus, config, base, onRides, provi
       if (!L.account) {
         L.busy = 'Connecting…';
         L.account = await wallet.connect();
-        L.my = new Map(); L.myLogs = false; L.logTries = 0; L.eth = null;
+        L.my = new Map(); L.myLogs = false; L.logTries = 0; L.scannedOld = false; L.eth = null;
         await checkChain();
         if (L.chainOk) await refreshMine();
         return;
@@ -1058,7 +1071,7 @@ export function createLive({ $, setText, setStatus, config, base, onRides, provi
     if (wallet) {
       // another account or network: what the sentence under the button said was about the old one
       const forget = () => { if (!L.busy) { L.msg = null; $('status').dataset.key = ''; } L.lastDash = -1; };
-      wallet.on('accountsChanged', (a) => { L.account = Array.isArray(a) && a[0] ? a[0] : null; L.my = new Map(); L.myLogs = false; L.logTries = 0; L.balance = null; L.eth = null; L.ack = null; forget(); checkChain().then(() => { schedule('mine'); loop(); }); });
+      wallet.on('accountsChanged', (a) => { L.account = Array.isArray(a) && a[0] ? a[0] : null; L.my = new Map(); L.myLogs = false; L.logTries = 0; L.scannedOld = false; L.balance = null; L.eth = null; L.ack = null; forget(); checkChain().then(() => { schedule('mine'); loop(); }); });
       wallet.on('chainChanged', () => { forget(); checkChain().then(() => { schedule('mine'); loop(); }); });
       try { const a = await wallet.accounts(); if (a[0]) { L.account = a[0]; await checkChain(); } } catch { /* not connected yet */ }
     }
