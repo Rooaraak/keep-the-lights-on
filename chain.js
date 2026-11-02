@@ -431,7 +431,10 @@ export function createChain(config, { fetchFn = globalThis.fetch?.bind(globalThi
     }
   }
 
-  return { config, rpc, call, calls, core, sqk, lights, latestBlock, wheel, chainId: async () => Number(await rpc.request('eth_chainId')) };
+  // test ETH (for the network fees) an address holds, in wei
+  async function ethBalance(owner) { return BigInt(await rpc.request('eth_getBalance', [owner, 'latest'])); }
+
+  return { config, rpc, call, calls, core, sqk, lights, latestBlock, wheel, ethBalance, chainId: async () => Number(await rpc.request('eth_chainId')) };
 }
 
 export function readWheel(j, nowMs = Date.now()) {
@@ -441,7 +444,12 @@ export function readWheel(j, nowMs = Date.now()) {
   const ref = Date.parse(j && j.generatedAt) || nowMs;
   const staleAfter = Number(m.staleAfterSeconds) || 120;
   const fresh = Number.isFinite(observed) && Number.isFinite(speed) && ref - observed >= -60_000 && ref - observed <= staleAfter * 1000;
-  return { fresh, running: fresh && speed > 0, speed: Number.isFinite(speed) ? speed : 0, rpm: Number(m.rpmMilli) / 1000 || 0, observedAt: Number.isFinite(observed) ? observed : null };
+  // work: his turns so far on the wheel's counter, the same counter SqueekCore records (state().cumulativeWork at
+  // the end of every recorded round); null when the reading has none. age: seconds the reading is older than the
+  // answer (the server's own clocks, so a device clock that is off doesn't matter).
+  const work = Number(m.cumulativeWorkUnits);
+  return { fresh, running: fresh && speed > 0, speed: Number.isFinite(speed) ? speed : 0, rpm: Number(m.rpmMilli) / 1000 || 0, observedAt: Number.isFinite(observed) ? observed : null,
+    work: m.cumulativeWorkUnits != null && Number.isFinite(work) && work >= 0 ? work : null, age: Number.isFinite(observed) ? Math.max(0, (ref - observed) / 1000) : 0 };
 }
 
 // ---------------------------------------------------------------- the wallet
@@ -489,6 +497,18 @@ export function createWallet(provider, config, chain) {
       throw Object.assign(new Error('this would fail'), { revert: decodeRevert(raw) || { name: 'Unknown', args: [] }, cause: e });
     }
   }
+  // The same simulation through the wallet's own node (the one that just saw the player's transactions go through),
+  // for when the page's node lags behind. Throws with `.revert` when it would fail, or with `.unsupported` when the
+  // wallet doesn't answer reads or gives no reason.
+  async function simulate(from, to, data) {
+    try {
+      return await req('eth_call', [{ from, to, data }, 'latest']);
+    } catch (e) {
+      const rev = decodeRevert(findRevertData(e));
+      if (!rev || rev.name === 'Unknown') throw Object.assign(new Error('the wallet cannot check this'), { unsupported: true, cause: e });
+      throw Object.assign(new Error('this would fail'), { revert: rev, cause: e });
+    }
+  }
   // `gas`: a fixed gas limit (only the gas used is paid). Without one the wallet estimates it.
   async function send(from, to, data, { gas } = {}) {
     const hash = await req('eth_sendTransaction', [gas ? { from, to, data, gas: hexChain(gas) } : { from, to, data }]);
@@ -509,7 +529,9 @@ export function createWallet(provider, config, chain) {
     }
   }
   const on = (event, fn) => { if (typeof provider.on === 'function') provider.on(event, fn); };
-  return { provider, connect, accounts, chainId, switchChain, preflight, send, waitReceipt, on, wantChainId: want };
+  // test ETH as the wallet's own node sees it (it may be ahead of the page's node); throws if the wallet won't say
+  async function ethBalance(owner) { return BigInt(await req('eth_getBalance', [owner, 'latest'])); }
+  return { provider, connect, accounts, chainId, switchChain, preflight, simulate, send, waitReceipt, on, ethBalance, wantChainId: want };
 }
 
 // ---------------------------------------------------------------- the two things a player does
@@ -528,11 +550,16 @@ async function helperGas(chain, from, to, data) {
     return Math.min(Math.ceil(est * 1.5) + 100_000, 12_000_000);
   } catch { return undefined; }
 }
-// After a transaction failed on chain, simulate it again to learn why (TooLate, AlreadyBet, ...), if it says.
+// After a transaction failed on chain, simulate it again to learn why (TooLate, AlreadyBet, ...), if it says: on the
+// page's node first, then on the wallet's own node (the page's node may not have seen the block yet).
 async function whyFailed(wallet, from, to, data) {
   try { await wallet.preflight(from, to, data); } catch (e) { if (e.revert && e.revert.name !== 'Unknown') return e; }
+  if (typeof wallet.simulate === 'function') {
+    try { await wallet.simulate(from, to, data); } catch (e) { if (e.revert && e.revert.name !== 'Unknown') return e; }
+  }
   return null;
 }
+const isAllowanceRevert = (rev) => !!rev && (rev.name === 'ERC20InsufficientAllowance' || (rev.name === 'Error' && /allowance/i.test(rev.args[0] || '')));
 
 // Places one bet: checks the SQK balance, simulates the bet (one bet per ride, limits), lets the game take exactly
 // `amount` if it can't yet (never more, never unlimited), simulates again, sends the bet and waits for it.
@@ -542,11 +569,19 @@ async function whyFailed(wallet, from, to, data) {
 // step doesn't make a bet that is still fine fail.
 // If the game hasn't read every round the core has (PokeFirst, after a long busy spell nobody played in), it first
 // sends a helper (poke) so the game catches up, at most `helpers` times.
+// Right after the allow step, the page's node may not have seen it yet (public RPCs are several nodes; the Sepolia
+// rehearsal hit this). The bet is then simulated on the wallet's own node, and the page's node is asked again for a
+// while (ALLOW_LAG). If neither shows the allow in that time, it throws code ALLOW_SLOW (the allow went through, the
+// network is slow): no second allow is asked for. `priorAllow` = { amount } is an allow the page saw go through on an
+// earlier press (from onStep 'allowed'): the next press goes straight to the bet, and if the page's node still
+// doesn't show it and the wallet can't check, the bet is sent anyway (the allow is confirmed, and the simulation
+// only stopped at it, which the contract checks last).
 // onStep(step, info) reports progress: 'check', 'catchup' (wallet asks for a helper), 'catching', 'allow' (wallet
-// asks), 'allowing' (sent, waiting), 'bet', 'betting', 'done'. `beforeBet()` runs right before the bet is sent and may
-// throw to stop it (the page re-checks the lowest bulb there, since the other steps can take a while); if it returns
-// a number, that is the new lastRound. Returns { hash, betId, approveHash, helpers }.
-export async function placeBet({ chain, wallet, account, bulb, amount, lastRound = null, onStep = () => {}, beforeBet = async () => {}, waitOpts, helpers = 3 } = {}) {
+// asks), 'allowing' (sent, waiting), 'allowed' (it went through: { hash, amount }), 'allowWait' (the page's node
+// doesn't show it yet), 'bet', 'betting', 'done'. `beforeBet()` runs right before the bet is sent and may throw to
+// stop it (the page re-checks the lowest bulb there, since the other steps can take a while); if it returns a number,
+// that is the new lastRound. Returns { hash, betId, bet, balance, approveHash, helpers } (balance: SQK before the bet).
+export async function placeBet({ chain, wallet, account, bulb, amount, lastRound = null, priorAllow = null, onStep = () => {}, beforeBet = async () => {}, waitOpts, helpers = 3 } = {}) {
   const game = chain.lights.address, token = chain.config.sqk;
   if (!game) throw new Error('no game contract');
   onStep('check');
@@ -561,9 +596,18 @@ export async function placeBet({ chain, wallet, account, bulb, amount, lastRound
   };
   const simulate = async () => {
     try { await wallet.preflight(account, game, data()); return null; } catch (e) {
-      const name = e.revert && e.revert.name;
-      if (name === 'ERC20InsufficientAllowance' || (name === 'Error' && /allowance/i.test(e.revert.args[0] || ''))) return 'allow';
-      if (name === 'PokeFirst') return 'catchup';
+      if (isAllowanceRevert(e.revert)) return 'allow';
+      if (e.revert && e.revert.name === 'PokeFirst') return 'catchup';
+      throw e;
+    }
+  };
+  // the bet on the wallet's own node: null = it would go through; 'no' = it doesn't show the allow either (or can't
+  // say); 'unknown' = the wallet doesn't answer reads. Any other reason (AlreadyBet, TooLate, ...) is thrown.
+  const viaWallet = async () => {
+    if (typeof wallet.simulate !== 'function') return 'unknown';
+    try { await wallet.simulate(account, game, data()); return null; } catch (e) {
+      if (e.unsupported) return 'unknown';
+      if (isAllowanceRevert(e.revert) || (e.revert && e.revert.name === 'PokeFirst')) return 'no';
       throw e;
     }
   };
@@ -573,7 +617,8 @@ export async function placeBet({ chain, wallet, account, bulb, amount, lastRound
     if (!r.ok) throw Object.assign(new Error(`the ${what} step failed`), { code: 'FAILED', hash });
     return r;
   };
-  let approveHash = null, allowed = false, lag = 0;
+  const fromBefore = !!(priorAllow && BigInt(priorAllow.amount ?? 0) >= amount);
+  let approveHash = null, allowed = fromBefore, lag = 0, walletSays = null;
   const helperHashes = [];
   const pause = (waitOpts && waitOpts.sleep) || ((ms) => new Promise((r) => setTimeout(r, ms)));
   for (let s = await simulate(); ; s = await simulate()) {
@@ -588,18 +633,33 @@ export async function placeBet({ chain, wallet, account, bulb, amount, lastRound
       continue;
     }
     if (s === 'allow' || (!allowed && (await chain.sqk.allowance(account, game)) < amount)) {
-      // Right after the allow step, the node that simulates may not have seen it yet (public RPCs are several
-      // nodes; the Sepolia rehearsal hit this). Look again for a while before asking the player to press again.
       if (allowed) {
-        if (++lag > ALLOW_LAG.tries) throw Object.assign(new Error('allowance not seen yet'), { revert: { name: 'ERC20InsufficientAllowance', args: [] } });
-        await pause(ALLOW_LAG.everyMs);
-        continue;
+        // the allow went through, but the page's node doesn't show it yet: ask the wallet's node (first and last
+        // look), and look again on the page's node for a while
+        if (lag === 0 || lag >= ALLOW_LAG.tries) {
+          walletSays = await viaWallet();
+          if (walletSays === null) break;
+        }
+        // an allow from an earlier press that the wallet's node says isn't there any more (used or changed
+        // elsewhere): ask for it again
+        if (fromBefore && !approveHash && lag === 0 && walletSays === 'no') allowed = false;
+        else {
+          if (lag >= ALLOW_LAG.tries) {
+            // pressed again after "your allow went through", and the wallet can't check: send the bet
+            if (fromBefore && !approveHash && walletSays === 'unknown') break;
+            throw Object.assign(new Error('the allow is not seen yet'), { code: 'ALLOW_SLOW', hash: approveHash });
+          }
+          if (++lag === 1) onStep('allowWait', { hash: approveHash });
+          await pause(ALLOW_LAG.everyMs);
+          continue;
+        }
       }
       onStep('allow', { amount });
       approveHash = await wallet.send(account, token, encode.approve(game, amount));
       onStep('allowing', { hash: approveHash });
       await wait(approveHash, 'allow');
       allowed = true;
+      onStep('allowed', { hash: approveHash, amount });
       continue;
     }
     break;
@@ -619,7 +679,7 @@ export async function placeBet({ chain, wallet, account, bulb, amount, lastRound
   const log = (r.receipt.logs || []).find((l) => l.topics && l.topics[0] === TOPIC.BetPlaced && l.address && l.address.toLowerCase() === game.toLowerCase());
   const placed = log ? decode.betPlaced(log) : null;
   onStep('done', { hash, bet: placed });
-  return { hash, betId: placed ? placed.betId : null, bet: placed, approveHash, helpers: helperHashes };
+  return { hash, betId: placed ? placed.betId : null, bet: placed, balance, approveHash, helpers: helperHashes };
 }
 
 // Collects the winnings and refunds of `ids`. The contract only pays a bet once it has counted its ride, and it
@@ -628,7 +688,7 @@ export async function placeBet({ chain, wallet, account, bulb, amount, lastRound
 // says nothing would be paid yet (a long gap, a busy ride), it sends one helper transaction to count the ride
 // (`poke` reads rounds, `settle` counts bets), at most `helpers` times, then collects.
 // onStep: 'check', 'count' (wallet asks for a helper), 'counting', 'collect', 'collecting', 'done'.
-// Returns { hash, collected, helpers: [hashes] }.
+// Returns { hash, collected, paid: [{ id, amount, refunded }], helpers: [hashes] }.
 export async function collect({ chain, wallet, account, ids, onStep = () => {}, waitOpts, helpers = 3 } = {}) {
   const game = chain.lights.address;
   const data = encode.claim(ids);
@@ -660,10 +720,12 @@ export async function collect({ chain, wallet, account, ids, onStep = () => {}, 
   const r = await wallet.waitReceipt(hash, waitOpts);
   if (r.timeout) throw Object.assign(new Error('still waiting'), { code: 'TIMEOUT', hash });
   if (!r.ok) throw Object.assign(new Error('collect failed'), { code: 'FAILED', hash });
-  const collected = (r.receipt.logs || []).filter((l) => l.topics && (l.topics[0] === TOPIC.Claimed || l.topics[0] === TOPIC.Refunded) && l.address.toLowerCase() === game.toLowerCase())
-    .reduce((a, l) => a + decode.uint(l.data), 0n);
+  // what each bet paid (Claimed / Refunded: betId and owner are indexed), so the page can show it before its node does
+  const paid = (r.receipt.logs || []).filter((l) => l.topics && (l.topics[0] === TOPIC.Claimed || l.topics[0] === TOPIC.Refunded) && l.address && l.address.toLowerCase() === game.toLowerCase())
+    .map((l) => ({ id: num(BigInt(l.topics[1])), amount: decode.uint(l.data), refunded: l.topics[0] === TOPIC.Refunded }));
+  const collected = paid.reduce((a, p) => a + p.amount, 0n);
   onStep('done', { hash, collected });
-  return { hash, collected, helpers: helperHashes };
+  return { hash, collected, paid, helpers: helperHashes };
 }
 
 // ---------------------------------------------------------------- plain words for failures
@@ -685,6 +747,7 @@ export function explain(err) {
   if (code === 'WRONG_NETWORK') return { kind: 'network', text: 'Your wallet is on another network. Switch it to Sepolia (the test network) to play.' };
   if (code === 'TIMEOUT') return { kind: 'timeout', text: 'Your wallet sent it, but the network hasn\'t confirmed it yet. It may still go through; the page will show it when it does.' };
   if (code === 'FAILED') return { kind: 'failed', text: 'It didn\'t go through, so nothing changed. Please try again.' };
+  if (code === 'ALLOW_SLOW') return { kind: 'allowSlow', text: 'Your allow went through, but the network is slow to show it. Press the button again in a moment to place your bet; your wallet won\'t ask to allow again.' };
   if (code === 'NOT_READY') return { kind: 'counting', text: 'There is nothing to collect yet: the game hasn\'t finished counting that ride. Try again in a minute.' };
   if (code === 4100) return { kind: 'locked', text: 'Your wallet is locked or hasn\'t shared an account with this page. Unlock it and connect again.' };
   if (/insufficient funds/i.test(msg)) return { kind: 'gas', text: 'Your wallet needs a little Sepolia ETH to pay the network fee. Test ETH is free from a Sepolia faucet.' };
