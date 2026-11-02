@@ -2,7 +2,7 @@
 // players, moved onto the shared board. Nothing here touches a wallet or the chain; the settlement is engine.js.
 import * as Lights from './engine.js';
 import * as Board from './board.js';
-import { odds as oddsOf, runTime } from './live-model.js';
+import { odds as oddsOf, runTime, bestCase } from './live-model.js';
 
 const PRE = 5, SPR_SECS = 3, MAX_BULB = Lights.MAX_BULB;
 const PLAYERS = [
@@ -20,6 +20,10 @@ const signed = (v) => (v > .5 ? `+${fmt(v)}` : v < -.5 ? `−${fmt(-v)}` : '±0'
 const bulbs = (n) => `${n} bulb${n === 1 ? '' : 's'}`;
 const hhmm = (d) => d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 const day = (d) => d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+// the last item (no Array.prototype.at: older phone browsers, iOS 15.0-15.3 and Chrome before 92, don't have it)
+const lastOf = (list) => list[list.length - 1];
+// only the win / lose classes of an amount change: the 'tick' that settles a changed number stays
+const tone = (el, c) => { for (const k of ['win', 'lose']) if (el.classList.contains(k) !== (c === k)) el.classList.toggle(k, c === k); };
 
 export function createReplay({ $, setText, setStatus }) {
   let DATA = { rides: [], odds: [] }, POT_IN = new Map();
@@ -39,6 +43,17 @@ export function createReplay({ $, setText, setStatus }) {
   const toBets = (list) => list.map((p) => ({ stake: wei(p.bet), bulb: p.bulb, betRound: p.betRound }));
   const handsOn = () => { const s = Lights.settleRide(S.ride.w, toBets(bets()), S.potIn); return s.result === 'rolled' ? s.bonusOut : 0n; };
   const oddsFor = (k) => DATA.odds.find((o) => o.bulb === k);
+  // the best case for a bet on bulb k (payoutAt(n) = what it gets if the lights go out right after bulb n): it holds
+  // while he lights k up to some bulb; a higher bet that lights too takes a slice
+  // (worked out again only when what it depends on changes: the dashboard is drawn every frame)
+  const memo = { key: null, label: '' };
+  const bestLabel = (k, payoutAt, key) => {
+    if (memo.key === key) return memo.label;
+    const best = payoutAt(k);
+    let hi = k;
+    while (hi < MAX_BULB && payoutAt(hi + 1) === best) hi++;
+    return Object.assign(memo, { key, label: bestCase(k, hi) }).label;
+  };
 
   // rides: [{ n, start, utc, C, lit, w }], every one closed
   function setRides(rides) {
@@ -108,6 +123,10 @@ export function createReplay({ $, setText, setStatus }) {
 
   function renderPlayers() {
     const r = Math.max(0, nowRound()), lit = S.t < 0 ? 0 : litBy(r - 1), box = $('riders'); box.textContent = '';
+    box.dataset.key = ''; // (live mode keys its own list; this one is the replay's)
+    const note = document.createElement('p'); note.className = 'empty';
+    note.textContent = `His run is real. These ${PLAYERS.length} players are made up, so you can see how the pot is shared.`;
+    box.append(note);
     const list = bets().slice().sort((a, b) => (b.me ? 1 : 0) - (a.me ? 1 : 0) || a.bulb - b.bulb);
     for (const p of list) {
       const row = document.createElement('div'), who = document.createElement('div'), name = document.createElement('b'), small = document.createElement('small'), amt = document.createElement('div');
@@ -138,21 +157,22 @@ export function createReplay({ $, setText, setStatus }) {
     updateButton();
     if (S.over) return;
     const lit = S.t < 0 ? 0 : litBy(r - 1), y = S.you, money = $('money');
-    const showMoney = (v) => { setText('money', signed(v)); const c = v > .5 ? 'win' : v < -.5 ? 'lose' : ''; if (money.className !== c) money.className = c; };
+    const showMoney = (v) => { setText('money', signed(v)); tone(money, v > .5 ? 'win' : v < -.5 ? 'lose' : ''); };
     if (S.nextBet || (!y && forNext())) {
       const next = nextRide(), b = S.nextBet;
       setText('youState', b ? `Bulb ${b.bulb}` : `Bulb ${S.pick}?`);
       setText('youSub', b ? `next ride · bet ${b.bet}` : 'Tap a bulb on the board, or use − and +');
       if (!next) {
-        setText('moneyLabel', 'Next ride'); setText('money', '–'); money.className = ''; setText('moneySub', 'not in this replay');
+        setText('moneyLabel', 'Next ride'); setText('money', '–'); tone(money, ''); setText('moneySub', 'not in this replay');
         setStatus('The lights are going out. This is the last night in the replay, so there is no next ride to bet on.');
         return;
       }
       if (!b && S.pick < minBulb()) setPick(minBulb());
       const me = b || { bet: S.bet, bulb: S.pick, me: true, betRound: S.ride.start + Math.min(betRound(), len() + 1) - next.start };
       const crowd = PLAYERS.map((p) => ({ ...p, betRound: PLAYERS_ROUND }));
-      const est = split(me.bulb, [...crowd, me], next, me.betRound, b && S.carry ? S.carry.pot : handsOn()).out.at(-1);
-      setText('moneyLabel', `If the lights go out right after bulb ${me.bulb}`); showMoney(est.payout - me.bet);
+      const pot = b && S.carry ? S.carry.pot : handsOn(), atAll = (n) => split(n, [...crowd, me], next, me.betRound, pot).out;
+      const at = (n) => lastOf(atAll(n)).payout;
+      setText('moneyLabel', bestLabel(me.bulb, at, `next|${next.n}|${me.bulb}|${me.bet}|${me.betRound}|${pot}`)); showMoney(at(me.bulb) - me.bet);
       setText('moneySub', 'on the next ride, with the bets so far');
       setStatus('This bet is for the next ride.');
       return;
@@ -160,16 +180,16 @@ export function createReplay({ $, setText, setStatus }) {
     if (!y) {
       if (S.pick < minBulb()) setPick(minBulb());
       setText('youState', `Bulb ${S.pick}?`); setText('youSub', 'Tap a bulb on the board, or use − and +');
-      const est = split(S.pick, [...S.players, { bet: S.bet, bulb: S.pick, me: true, betRound: betRound() }]).out.at(-1);
-      setText('moneyLabel', `If the lights go out right after bulb ${S.pick}`); showMoney(est.payout - S.bet);
+      const list = [...S.players, { bet: S.bet, bulb: S.pick, me: true, betRound: betRound() }], at = (n) => lastOf(split(n, list).out).payout;
+      setText('moneyLabel', bestLabel(S.pick, at, `pick|${S.ride.n}|${S.pick}|${S.bet}|${betRound()}|${nowRound()}|${S.potIn}`)); showMoney(at(S.pick) - S.bet);
       setText('moneySub', 'with the bets so far');
       setStatus(S.t < 0 ? 'Pick a bulb and a bet before the lights come on.' : `The lights are on. You can still bet on bulb ${minBulb()} or higher.`);
       return;
     }
     if (y.bulb > lit) {
-      const left = y.bulb - lit, best = split(y.bulb, bets()).out.find((o) => o.p === y);
+      const left = y.bulb - lit, list = bets(), at = (n) => split(n, list).out.find((o) => o.p === y).payout;
       setText('youState', `Bulb ${y.bulb}`); setText('youSub', `${left} bulb${left === 1 ? '' : 's'} to go · bet ${y.bet}`);
-      setText('moneyLabel', `If the lights go out right after bulb ${y.bulb}`); showMoney(best.payout - y.bet);
+      setText('moneyLabel', bestLabel(y.bulb, at, `you|${S.ride.n}|${y.bulb}|${y.bet}|${y.betRound}|${nowRound()}|${S.potIn}`)); showMoney(at(y.bulb) - y.bet);
       setText('moneySub', 'with the bets so far');
       setStatus(left === 1 ? 'One more bulb! He needs to keep running about 10 more minutes.' : `He needs to light ${left} more bulbs, about ${left * 10} minutes of running.`);
     } else {
@@ -232,13 +252,18 @@ export function createReplay({ $, setText, setStatus }) {
     const pot = S.over ? (S.result.result === 'rolled' ? S.result.bonusOut : 0n) : S.potIn, potN = pot > 0n ? Math.round(sqk(pot)) : 0;
     const at = new Map();
     for (const p of bets()) { const a = at.get(p.bulb) || { bulb: p.bulb, me: false, others: 0 }; if (p.me) a.me = true; else a.others++; at.set(p.bulb, a); }
-    const msg = S.t < 0 ? `PLACE YOUR BETS * LIGHTS ON IN ${Math.ceil(-S.t / S.speed)}`
+    // The sign: short words that stay while the night does the same thing. On a phone the sign is 99 dots across: up to
+    // 16 letters stand still and change at once; a longer message scrolls, and the next one waits until it has passed
+    // (a replay at 2x lights a bulb every 1.5 s). Only the blackout, the last word of the night, is long.
+    const msg = S.t < 0 ? 'PLACE YOUR BETS'
       : S.over && S.result.result === 'rolled' ? `BLACKOUT ${lit ? `AFTER ${bulbs(lit)}` : 'BEFORE BULB 1'} * NOBODY WON * BONUS POT ${potN} ROLLS ON`
       : S.over ? `BLACKOUT AFTER ${bulbs(lit)} * SWEET DREAMS`
-      : r === 0 ? 'HE IS ON THE WHEEL * WARMING UP' : !active(r) ? (r >= L ? 'LIGHTS FLICKER ... IS HE ASLEEP?' : 'SHORT BREAK * LIGHTS FLICKER')
-      : `${work} TURNS * NEXT: BULB ${lit + 1}`;
+      : r === 0 ? 'WARMING UP' : !active(r) ? (r >= L ? 'IS HE ASLEEP?' : 'SHORT BREAK')
+      : `NEXT: BULB ${lit + 1}`;
+    // (waitSign: a replay's news comes fast, so the sign may let a long message finish before the next; live mode never
+    // sets it, its news replaces the old message at once)
     return { lit, resting, pace: work, speedMul: S.speed, pot: potN, markers: [...at.values()], pick: S.you ? S.you.bulb : S.over ? 0 : S.pick,
-      outP, msg, flicker: r >= 1 && !active(r) && !S.over };
+      outP, msg, flicker: r >= 1 && !active(r) && !S.over, waitSign: true };
   }
 
   function fillRides() {
@@ -270,7 +295,7 @@ export function createReplay({ $, setText, setStatus }) {
       S.active = true;
       $('replayControls').hidden = false; $('amtOther').hidden = true; $('soon').hidden = true; $('act').hidden = false; $('amountRow').hidden = false;
       $('walletLine').hidden = true; $('minePanel').hidden = true; $('playersPanel').hidden = false;
-      setText('playersTitle', "Tonight's players");
+      setText('playersTitle', 'Pretend players');
       for (const id of ['b50', 'b100', 'b200']) $(id).setAttribute('aria-pressed', String(+$(id).dataset.bet === S.bet));
       setText('eyebrow', 'Squeekchain · a replay of a real night'); $('liveDot').dataset.on = 'false';
       startRide(+$('ride').value);

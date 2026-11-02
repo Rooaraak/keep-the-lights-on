@@ -116,7 +116,8 @@ try {
   ok(placed.betId === 0 && placed.bet && placed.bet.bulb === 3 && placed.bet.betRound === 101, `wallet: bet on bulb 3 placed in round 101 (bet ${placed.betId})`);
   ok(allowanceAtBet === 100n * W, 'wallet: the game was allowed exactly the bet, nothing more', String(allowanceAtBet));
   ok((await chain.sqk.allowance(me, lights)) === 0n, 'wallet: nothing left allowed after the bet');
-  ok(steps.join(',') === 'check,allow,allowing,bet,betting,done', `wallet: steps ${steps.join(' > ')}`);
+  // 'allowed': the allow went through (the page remembers it, so a slow node can't make it ask twice)
+  ok(steps.join(',') === 'check,allow,allowing,allowed,bet,betting,done', `wallet: steps ${steps.join(' > ')}`);
   await at(101, 100);
   await betNow(p1, 2, 100n * W);
   await at(101, 160);

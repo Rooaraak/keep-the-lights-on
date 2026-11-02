@@ -138,14 +138,14 @@ try {
   await waitText('#act', /Switch to Anvil/);
   check(/Switch to Anvil/.test(await text('#act')), 'the wallet is on another network: "Switch to Anvil"', await text('#act'));
   await page.click('#act');
-  await waitText('#act', /^Bet 100 on bulb/);
+  await waitText('#act', /^Bet 100 SQK on bulb/);
   await waitText('#walletLine', /you have 1,000 SQK/);
   check(/you have 1,000 SQK/.test(await text('#walletLine')), 'connected: the wallet line shows 1,000 SQK', await text('#walletLine'));
   // pick bulb 3 with the minus button
   for (let i = 0; i < 3; i++) { await page.click('#bMinus'); await sleep(80); }
   await sleep(300);
   check(await text('#bPick') === '3' && /Bulb 3 · 30 min · no nights to count yet/.test(await text('#pickOdds')), 'bulb 3 picked; next to the picker its odds (this made-up chain has no nights yet)', await text('#pickOdds'));
-  check(/^If the lights go out right after bulb 3$/.test(await text('#moneyLabel')) && /^[+−±]/.test(await text('#money')), `the one number: ${await text('#money')}`);
+  check(/^Best case: he lights 3 to 4 bulbs$/.test(await text('#moneyLabel')) && /^[+−±][\d,.]* SQK$/.test(await text('#money')), `the one number, in SQK, and its best case: ${await text('#money')} / ${await text('#moneyLabel')}`);
   await page.screenshot({ path: join(SHOTS, 'contract-before-bet.png') });
   await page.click('#act');
   await waitText('#status', /Bet placed/, 20_000);

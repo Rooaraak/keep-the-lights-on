@@ -8,6 +8,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as C from '../chain.js';
+import { holdWheel } from '../live-model.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const fx = (name) => readFileSync(join(HERE, 'fixtures', name), 'utf8').trim();
@@ -135,6 +136,10 @@ eq(threw, 4, 'bad addresses and amounts are refused, not encoded');
   ok(b.fresh && !b.running, 'speed 0 on a fresh reading = resting');
   ok(!c.fresh && !c.running, 'an old reading says nothing');
   ok(!d.fresh && !d.running, 'an empty answer says nothing');
+  // the wheel's counter (a string in the real answer, e.g. "71387") and how old the reading is
+  const e = C.readWheel({ generatedAt: '2026-11-01T23:37:09.063Z', measurement: { observedAt: '2026-11-01T23:37:08.269Z', staleAfterSeconds: 120, speedMmPerSecond: 0, rpmMilli: 0, cumulativeWorkUnits: '71387' } });
+  ok(e.fresh && e.work === 71387 && Math.abs(e.age - .794) < .01, 'the wheel\'s counter is read (71387) with the reading\'s age (0.8 s)', JSON.stringify(e));
+  ok(a.work === null && d.work === null && C.readWheel({ measurement: { cumulativeWorkUnits: 'x' } }).work === null, 'no counter (or a bad one): work is null');
 }
 
 // ---------- optional: the real SqueekCore, gently ----------
@@ -149,12 +154,18 @@ if (process.argv.includes('--live')) {
 }
 
 // After the allow step, the node that simulates the bet may not have seen it yet (the Sepolia rehearsal hit this):
-// placeBet looks again a few times instead of failing, and still asks the wallet to allow only once.
+// placeBet asks the wallet's own node, looks again a few times instead of failing, and asks the wallet to allow only
+// once. If no node shows it in that time, it says the allow went through (never "wasn't allowed"), and the next press
+// goes straight to the bet.
 {
   const GAME = '0x' + '11'.repeat(20), TOKEN = '0x' + '22'.repeat(20), ME = '0x' + '33'.repeat(20), amount = 100n * 10n ** 18n;
-  const run = async (lagLooks) => {
-    let approved = false, looksAfter = 0, approves = 0, bets = 0, pauses = 0;
-    const chain = { lights: { address: GAME }, config: { sqk: TOKEN }, sqk: { balanceOf: async () => amount * 10n, allowance: async () => (approved ? amount : 0n) } };
+  // lagLooks: how many page-node looks after the allow still miss it; walletSees: undefined = the wallet doesn't
+  // answer reads, true/false = its node shows the allow / doesn't; approvedAlready: the allow went through on an
+  // earlier press (the page remembers it as priorAllow)
+  const run = async (lagLooks, { walletSees, approvedAlready = false, priorAllow = null } = {}) => {
+    let approved = approvedAlready, looksAfter = 0, approves = 0, bets = 0, pauses = 0, walletLooks = 0;
+    const steps = [];
+    const chain = { lights: { address: GAME }, config: { sqk: TOKEN }, sqk: { balanceOf: async () => amount * 10n, allowance: async () => (approved && looksAfter > lagLooks ? amount : 0n) } };
     const wallet = {
       preflight: async () => {
         if (approved && ++looksAfter > lagLooks) return '0x';
@@ -163,14 +174,98 @@ if (process.argv.includes('--live')) {
       send: async (from, to) => { if (to === TOKEN) { approves++; approved = true; return '0xa1'; } bets++; return '0xb2'; },
       waitReceipt: async () => ({ ok: true, receipt: { logs: [] } }),
     };
+    if (walletSees !== undefined) {
+      wallet.simulate = async () => {
+        walletLooks++;
+        if (approved && walletSees) return '0x';
+        throw Object.assign(new Error('this would fail'), { revert: { name: 'Error', args: ['allowance'] } });
+      };
+    }
     let err = null, res = null;
-    try { res = await C.placeBet({ chain, wallet, account: ME, bulb: 4, amount, waitOpts: { sleep: async () => { pauses++; } } }); } catch (e) { err = e; }
-    return { err, res, approves, bets, pauses };
+    try { res = await C.placeBet({ chain, wallet, account: ME, bulb: 4, amount, priorAllow, onStep: (s) => steps.push(s), waitOpts: { sleep: async () => { pauses++; } } }); } catch (e) { err = e; }
+    return { err, res, approves, bets, pauses, walletLooks, steps };
   };
+  const show = (x) => JSON.stringify({ e: x.err && (x.err.code || x.err.message), a: x.approves, b: x.bets, p: x.pauses, w: x.walletLooks, s: x.steps });
   const slow = await run(3);
-  ok(!slow.err && slow.approves === 1 && slow.bets === 1 && slow.pauses === 3, 'allow seen only on the 4th look: the bet goes out after 3 short waits, with one allow', JSON.stringify({ e: slow.err && slow.err.message, a: slow.approves, b: slow.bets, p: slow.pauses }));
+  ok(!slow.err && slow.approves === 1 && slow.bets === 1 && slow.pauses === 3, 'allow seen only on the 4th look: the bet goes out after 3 short waits, with one allow', show(slow));
+  ok(slow.steps.join() === 'check,allow,allowing,allowed,allowWait,bet,betting,done', 'and the page hears "allowed" (to remember it) and "allowWait" once (to say it went through)', show(slow));
+  const viaWallet = await run(99, { walletSees: true });
+  ok(!viaWallet.err && viaWallet.approves === 1 && viaWallet.bets === 1 && viaWallet.pauses === 0 && viaWallet.walletLooks === 1, "the page's node lags but the wallet's own node shows the allow: the bet goes out at once, one allow", show(viaWallet));
   const never = await run(99);
-  ok(never.err && never.err.revert && never.err.revert.name === 'ERC20InsufficientAllowance' && never.approves === 1 && never.bets === 0 && never.pauses === C.ALLOW_LAG.tries, `allow never seen: stops after ${C.ALLOW_LAG.tries} looks, no second allow, no bet`, JSON.stringify({ e: never.err && never.err.message, a: never.approves, b: never.bets, p: never.pauses }));
+  ok(never.err && never.err.code === 'ALLOW_SLOW' && never.approves === 1 && never.bets === 0 && never.pauses === C.ALLOW_LAG.tries, `allow never seen (the wallet can't check): stops after ${C.ALLOW_LAG.tries} looks, no second allow, no bet`, show(never));
+  const neverW = await run(99, { walletSees: false });
+  ok(neverW.err && neverW.err.code === 'ALLOW_SLOW' && neverW.approves === 1 && neverW.bets === 0 && neverW.walletLooks === 2, "neither node shows it: the same, after asking the wallet's node twice", show(neverW));
+  const said = C.explain(never.err).text;
+  ok(/allow went through/.test(said) && /won't ask to allow again/.test(said) && !/wasn't allowed/.test(said), `it says the allow went through, not "wasn't allowed": "${said}"`);
+  // the next press, with the allow remembered: no second allow, whatever the nodes show
+  const next = await run(99, { approvedAlready: true, priorAllow: { amount } });
+  ok(!next.err && next.approves === 0 && next.bets === 1, "next press, the page's node still lags and the wallet can't check: straight to the bet, no second allow", show(next));
+  const nextW = await run(99, { approvedAlready: true, priorAllow: { amount }, walletSees: true });
+  ok(!nextW.err && nextW.approves === 0 && nextW.bets === 1 && nextW.pauses === 0, "next press, the wallet's node shows it: the bet at once", show(nextW));
+  const nextSeen = await run(0, { approvedAlready: true, priorAllow: { amount } });
+  ok(!nextSeen.err && nextSeen.approves === 0 && nextSeen.bets === 1 && nextSeen.pauses === 0, 'next press, the node has caught up: the bet at once', show(nextSeen));
+  // a remembered allow the wallet's node says is gone (used or changed elsewhere): allow again, once
+  const gone = await run(0, { approvedAlready: false, priorAllow: { amount }, walletSees: false });
+  ok(!gone.err && gone.approves === 1 && gone.bets === 1, "a remembered allow the wallet's node doesn't show: the wallet asks to allow again, then the bet", show(gone));
+  const smaller = await run(0, { approvedAlready: false, priorAllow: { amount: amount / 2n } });
+  ok(!smaller.err && smaller.approves === 1 && smaller.bets === 1, 'a remembered allow smaller than this bet is not used', show(smaller));
+}
+
+// A bet that fails on chain: the reason comes from the page's node, or else from the wallet's own node (the page's
+// node may not have seen the first bet yet: a second tap must say "already", not "please try again").
+{
+  const GAME = '0x' + '11'.repeat(20), TOKEN = '0x' + '22'.repeat(20), ME = '0x' + '33'.repeat(20), amount = 100n * 10n ** 18n;
+  const chain = { lights: { address: GAME }, config: { sqk: TOKEN }, sqk: { balanceOf: async () => amount, allowance: async () => amount } };
+  const make = (walletKnows) => ({
+    preflight: async () => '0x',
+    simulate: walletKnows ? async () => { throw Object.assign(new Error('x'), { revert: { name: 'AlreadyBet', args: [] } }); } : undefined,
+    send: async () => '0xb2',
+    waitReceipt: async () => ({ ok: false, receipt: { logs: [] } }),
+  });
+  let e1 = null, e2 = null;
+  try { await C.placeBet({ chain, wallet: make(true), account: ME, bulb: 4, amount, waitOpts: { sleep: async () => {} } }); } catch (e) { e1 = e; }
+  try { await C.placeBet({ chain, wallet: make(false), account: ME, bulb: 4, amount, waitOpts: { sleep: async () => {} } }); } catch (e) { e2 = e; }
+  ok(e1 && C.explain(e1).kind === 'already' && e1.hash === '0xb2', "a failed bet the page's node can't explain: the wallet's node says why (already bet)", e1 && e1.message);
+  ok(e2 && e2.code === 'FAILED', 'no node says why: "didn\'t go through"', e2 && e2.message);
+}
+
+// the wallet's own simulation: a revert comes back with its reason, a wallet that doesn't answer reads is "unsupported"
+{
+  const cfg = { chainId: 31337, rpc: ['http://127.0.0.1:1'] };
+  const w1 = C.createWallet({ request: async () => { throw Object.assign(new Error('execution reverted'), { code: 3, data: '0xa820742e' }); } }, cfg, {});
+  const w2 = C.createWallet({ request: async () => { throw Object.assign(new Error('The method eth_call is not supported'), { code: 4200 }); } }, cfg, {});
+  const w3 = C.createWallet({ request: async ({ method }) => (method === 'eth_call' ? '0x' : null) }, cfg, {});
+  let a = null, b = null, c = 'none';
+  try { await w1.simulate('0x' + '33'.repeat(20), '0x' + '11'.repeat(20), '0x'); } catch (e) { a = e; }
+  try { await w2.simulate('0x' + '33'.repeat(20), '0x' + '11'.repeat(20), '0x'); } catch (e) { b = e; }
+  try { c = await w3.simulate('0x' + '33'.repeat(20), '0x' + '11'.repeat(20), '0x'); } catch (e) { c = e; }
+  ok(a && a.revert && a.revert.name === 'AlreadyBet' && !a.unsupported, "wallet simulation: a revert is read from the wallet's error", a && a.message);
+  ok(b && b.unsupported && !b.revert, 'wallet simulation: a wallet that does not answer reads is "unsupported"', b && b.message);
+  ok(c === '0x', 'wallet simulation: a call that goes through returns its data');
+}
+
+// The wheel blip hold (11-01 real night): one zero between running readings is not a stop; a zero that lasts 8 s is.
+{
+  const run = (t, speed = 1000) => ({ fresh: true, running: speed > 0, speed, rpm: speed / 15, observedAt: t });
+  let h = holdWheel(run(0), run(4000, 0), { at: 4000 });
+  ok(h.wheel.running && h.wheel.held && h.zeroSince === 4000 && h.again, 'a zero right after running is held as running, and read again soon');
+  h = holdWheel(h.wheel, run(8000), { zeroSince: h.zeroSince, at: 8000 });
+  ok(h.wheel.running && !h.wheel.held && h.zeroSince === null, 'running again: the blip is forgotten');
+  h = holdWheel(run(0), run(2000, 0), { at: 2000 });
+  h = holdWheel(h.wheel, run(6000, 0), { zeroSince: h.zeroSince, at: 6000 });
+  ok(h.wheel.running && h.wheel.held, 'still 0 after 4 s: still held');
+  h = holdWheel(h.wheel, run(10500, 0), { zeroSince: h.zeroSince, at: 10500 });
+  ok(!h.wheel.running && h.zeroSince === null, 'still 0 after 8.5 s: a real stop');
+  h = holdWheel(run(0), run(1000, 0), { at: 1000, holdMs: 0 });
+  ok(!h.wheel.running, 'hold 0 (fast-forward tests): a zero is a stop at once');
+  h = holdWheel(run(0), null, { lastAt: 0, at: 20000 });
+  ok(h.kept && h.wheel.running, 'a failed read keeps the last good reading for a while');
+  h = holdWheel(run(0), null, { lastAt: 0, at: 40000 });
+  ok(h.wheel === null, '... but not after 30 s');
+  h = holdWheel(run(0), { fresh: false, running: false, speed: 0, rpm: 0, observedAt: -600000 }, { at: 5000 });
+  ok(h.wheel && !h.wheel.fresh, 'an old reading (the sensor stopped reporting) counts at once');
+  h = holdWheel({ fresh: true, running: false, speed: 0, rpm: 0, observedAt: 0 }, run(3000, 0), { at: 3000 });
+  ok(!h.wheel.running, 'asleep and still 0: nothing to hold');
 }
 
 console.log(failures ? `\n${failures} failure(s)` : '\nall chain checks passed');

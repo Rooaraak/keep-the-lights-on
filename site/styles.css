@@ -154,6 +154,8 @@ details p { margin: 0 0 12px; color: var(--dim); max-width: 70ch; }
   .panel > #banner { order: -3; }
   .hero .lede { font-size: 11px; letter-spacing: .05em; }
   select, input { font-size: 16px; }   /* under 16 px an iPhone zooms the page when you tap them */
+  .seg input { width: 92px; letter-spacing: .02em; }   /* room for "OTHER" at that size */
+  .seg input::placeholder { letter-spacing: .04em; }
   #bMinus, #bPlus { min-width: 44px; }
   .hero-top .sound-label { display: none; }
   .hero-top .sound { padding: 9px 11px; }

@@ -149,7 +149,105 @@ const full = M.walkNights({ rides: [], settledThrough: 0 }, active, ROUNDS.settl
   ok(belowReplay === 0, 'live lowest bulb is never below the replay\'s for the same moment');
   ok(labelBad === 0, '"counts for his next ride" is always true');
   ok(riskyBad === 0, `bulb 1 before he starts: offered in ${risky} cases, refunded in ${riskyRefunds}, each time because he started in the round the bet was sent`);
-  console.log(`  a bet said to be for tonight moved to his next ride in ${tonightMoved} cases (he fell asleep right after it); floors above bulbs lit: ${[...byFloor].sort((a, b) => a[0] - b[0]).map(([k, v]) => `+${k}: ${v}`).join(', ')}`);
+  console.log(`  a bet said to be for this ride (or for it or the next) moved to his next ride in ${tonightMoved} cases; floors above bulbs lit: ${[...byFloor].sort((a, b) => a[0] - b[0]).map(([k, v]) => `+${k}: ${v}`).join(', ')}`);
+}
+
+// ---------- 5b: which ride the page says a bet counts for ----------
+// For every moment (round in progress, SqueekCore one or two rounds behind, the bet landing in the round in progress
+// or up to two later) and every way he could be doing right now (running, or stopped after running in this round,
+// or stopped all round), with the page knowing only that he runs now or also every round he ran since the last
+// record: the ride the page names must be where the bet lands, in what really happened and in the two futures where
+// he stays asleep from now on or runs on. 'tonight' / 'started' must hold in all of them, 'next' too; 'either' must
+// move to his next ride if he stays asleep (as it says: "or his next ride if the lights go out").
+{
+  const work = new Map(active.map((a) => [a.id, a.work]));
+  // (each walk starts from the nights closed before tonight's departure, so it only walks the last few rounds)
+  const bases = new Map();
+  const baseFor = (S, view) => {
+    const B = view.open ? view.open.start - 1 : S;
+    if (!bases.has(B)) { const v = M.walkNights({ rides: [], settledThrough: 0 }, active, B, STATION); bases.set(B, { rides: v.rides, settledThrough: B }); }
+    return bases.get(B);
+  };
+  let base = null;
+  const land = (acts, N, T) => {
+    const v = M.walkNights(base, acts, T, STATION);
+    const { byRide, current } = M.groupBets([{ id: 0, betRound: N, bulb: 1, stake: 1n, owner: '0x0' }], v.rides);
+    if (current.length) return v.open ? v.open.start : null;
+    const n = [...byRide.keys()][0];
+    return v.rides.find((r) => r.n === n).start;
+  };
+  let cases = 0, bad = 0;
+  const said = { tonight: 0, either: 0, next: 0, started: 0, startedEither: 0 };
+  for (let cur = 3; cur <= ROUNDS.settledThrough - 6; cur++) {
+    for (const lag of [1, 2]) {
+      const S = cur - lag;
+      const view = M.walkNights({ rides: [], settledThrough: 0 }, active, S, STATION);
+      base = baseFor(S, view);
+      // now: he runs (the round has turns), he stopped after running in it, or the round is quiet so far
+      for (const nowCase of ['runs', 'stoppedAfter', 'quietSoFar']) {
+        if (nowCase !== 'quietSoFar' && !work.has(cur)) continue; // (the real round must have turns for these)
+        const curWork = nowCase === 'quietSoFar' ? 0 : work.get(cur);
+        const wheel = { fresh: true, running: nowCase === 'runs' };
+        for (const knows of ['now', 'all']) {
+          // what the page knows ran since S: the round he runs in now, or also every earlier one (and this one when he
+          // ran in it before stopping)
+          const known = new Set();
+          if (knows === 'all') { for (let r = S + 1; r < cur; r++) if (work.has(r)) known.add(r); if (curWork) known.add(cur); }
+          if (wheel.running) known.add(cur); // (the wheel turning now: the page knows this round has his turns)
+          for (const N of [cur, cur + 1, cur + 2]) {
+            const win = M.betWindow({ S, cur, N, open: view.open, wheel, active: known });
+            if (win.floor > E.MAX_BULB || win.closing) continue;
+            cases++; said[win.night]++;
+            const past = active.filter((a) => a.id < cur).concat(curWork ? [{ id: cur, work: curWork }] : []);
+            // the unknown past: as it really was, or quiet wherever the page doesn't know he ran
+            const pasts = [past, past.filter((a) => a.id <= S || known.has(a.id))];
+            const T = N + 4;
+            const outcomes = [];
+            for (const p of pasts) {
+              outcomes.push({ how: 'asleep', at: land(p, N, T) });
+              // (runs on: from the round in progress on, if it is quiet so far)
+              outcomes.push({ how: 'runs', at: land([...p.filter((a) => a.id < cur), { id: cur, work: curWork || 300 }, ...Array.from({ length: T - cur }, (_, i) => ({ id: cur + 1 + i, work: 300 }))], N, T) });
+            }
+            outcomes.push({ how: 'real', at: land(active.filter((a) => a.id !== cur).concat(curWork ? [{ id: cur, work: curWork }] : []).sort((x, y) => x.id - y.id), N, T) });
+            const tag = `round ${cur} (S ${S}, ${nowCase}, knows ${knows}), bet lands in ${N}: said ${win.night}`;
+            const tonight = view.open ? view.open.start : null;
+            for (const o of outcomes) {
+              if (win.night === 'tonight' && o.at !== tonight) { bad++; fail(`${tag}, but ${o.how} it lands in ${o.at}`); }
+              if (win.night === 'started' && !(o.at > S && o.at <= cur)) { bad++; fail(`${tag}, but ${o.how} it lands in ${o.at}`); }
+              if (win.night === 'next' && o.at != null && o.at <= S) { bad++; fail(`${tag}, but ${o.how} it lands in ${o.at}`); }
+            }
+            // 'either': asleep from now on, with the past as the page knows it (quiet where it doesn't know he ran), it moves
+            const asleep = outcomes[2].at;
+            if (win.night === 'either' && asleep === tonight) { bad++; fail(`${tag}, but asleep it still lands tonight`); }
+            if (win.night === 'startedEither' && asleep != null && asleep > S && asleep <= cur) { bad++; fail(`${tag}, but asleep it still lands in the ride of ${asleep}`); }
+          }
+        }
+      }
+    }
+  }
+  ok(bad === 0, `the ride named for a bet is where it lands (${cases} cases: ${Object.entries(said).map(([k, v]) => `${k} ${v}`).join(', ')})`);
+  ok(said.started > 0 && said.either > 0 && said.tonight > 0, 'and every kind of answer came up');
+  // the two real-night findings this covers: stopped after running in the round → 'tonight', not 'either'
+  const o = { start: 41, w: [500, 500, 500, 500, 500], idleRun: 0 };            // left in 41, bulbs 1-4 in 42-45
+  const a = M.betWindow({ S: 45, cur: 46, N: 46, open: o, wheel: { fresh: true, running: false }, active: new Set([46]) });
+  const b = M.betWindow({ S: 45, cur: 46, N: 46, open: o, wheel: { fresh: true, running: false }, active: new Set() });
+  ok(a.night === 'tonight' && b.night === 'either', `stopped after running in this round: for tonight's ride (${a.night}); quiet all round so far: tonight or next (${b.night})`);
+  // a quiet round recorded, the next one ended but not recorded yet, he runs again now: the lights may be out already
+  const q = { start: 45, w: [500, 500, 500, 500, 500, 500, 0], idleRun: 1 };     // 45 left, bulbs 1-5 in 46-50, 51 quiet
+  const c = M.betWindow({ S: 51, cur: 53, N: 53, open: q, wheel: { fresh: true, running: true } });
+  const d = M.betWindow({ S: 51, cur: 53, N: 53, open: q, wheel: { fresh: true, running: true }, active: new Set([52]) });
+  ok(c.night === 'either' && c.mayBeOut && d.night === 'tonight' && !d.mayBeOut, `back on the wheel with round 52 not recorded: tonight or next, the lights may be out (${c.night}, ${c.mayBeOut}); with 52 known to have his turns: tonight (${d.night})`);
+  // no ride recorded, he runs now: the ride he just started; in a round's last 105 s the bet lands in the next round
+  const e = M.betWindow({ S: 44, cur: 45, N: 45, open: null, wheel: { fresh: true, running: true } });
+  const f = M.betWindow({ S: 44, cur: 45, N: 46, open: null, wheel: { fresh: true, running: true } });
+  ok(e.night === 'started' && f.night === 'startedEither' && e.nightAt(45) === 'started' && f.nightAt(46) === 'startedEither', `he just got on the wheel: the ride he just started (${e.night}), or the next if it lands after this round (${f.night})`);
+  // the wheel's readings: running in a round, the counter going up inside a round, or above the core's count
+  const G = 1000, at = (r, s) => G + (r - 1) * 600 + s;
+  const k = M.knownActive([{ t: at(46, 10), work: 100, running: false }, { t: at(46, 100), work: 100, running: false }, { t: at(47, 5), work: 140, running: false },
+    { t: at(47, 50), work: 160, running: false }, { t: at(48, 5), work: 160, running: true }, { t: at(45, 500), work: 90, running: true }], G, 45, { S: 45, cum: 90 });
+  ok([...k].sort().join() === '46,47,48', `known to have his turns: 46 (counter above the core's count), 47 (went up inside it), 48 (running); not 45 (recorded) [${[...k]}]`);
+  const k2 = M.knownActive([{ t: at(46, 590), work: 100, running: false }, { t: at(47, 5), work: 120, running: false }], G, 45, { S: 45, cum: 100 });
+  ok(!k2.has(47) && !k2.has(46), 'a counter that went up across a round boundary says nothing about which round');
 }
 
 // ---------- the last two rounds of a 36-round night (audit M4): no bulb is offered there ----------

@@ -66,6 +66,14 @@ export function runTime(k) {
   return m ? `${h} h ${m} min` : `${h} hour${h > 1 ? 's' : ''}`;
 }
 
+// The label over the one number: the best case for a bet on bulb k, which it gets while he lights k up to hi bulbs
+// (more bulbs: a higher bet lights too and takes a slice; fewer: bulb k stays dark and the bet is lost).
+export function bestCase(k, hi) {
+  if (k >= Lights.MAX_BULB) return `Best case: he lights all ${Lights.MAX_BULB} bulbs`;
+  if (hi >= Lights.MAX_BULB) return `Best case: he lights ${k} or more bulbs`;
+  return hi > k ? `Best case: he lights ${k} to ${hi} bulbs` : `Best case: he lights exactly ${k} bulb${k === 1 ? '' : 's'}`;
+}
+
 export function odds(rides) {
   const total = rides.length, out = [];
   for (let k = 1; k <= Lights.MAX_BULB; k++) {
@@ -88,18 +96,55 @@ export function odds(rides) {
 // him starting in the very round the bet is sent (the wheel's fresh reading must say he isn't running now).
 // The last two rounds of a STATION night (departure + STATION - 2 and - 1, the 35th and 36th) take no bets: a bet
 // there joins that night but at most one more bulb can light, so it could only be given back or lose (audit M4).
-// Returns { floor, unknown, night, bulb1Risk, closing } with night = 'tonight' | 'either' | 'next'; floor 99 = none.
-export function betWindow({ S, cur, N, open, wheel, station = 36 }) {
+// Which ride the bet counts for: it moves to his next ride when the lights go out before its round. The lights go
+// out after two quiet rounds in a row (C and C + 1), and a bet sent in C or later is for the next ride. Rounds
+// through S are recorded; a later round is known to have his turns only if `active` has it (the wheel turning in
+// it, or its counter going up in it; a fresh reading that he runs now adds `cur`). Any other round may be quiet.
+//   night 'tonight'  the open ride, whatever he does ('either': or his next ride, if the lights go out first)
+//         'started'  no ride recorded yet, but he got on the wheel: the ride he just started ('startedEither': or
+//                    his next ride, if the lights go out first)
+//         'next'     his next ride
+// nightAt(b) is the same for a bet that landed in round b (from its receipt). mayBeOut: the lights may already have
+// gone out in rounds that ended but aren't recorded yet (a quiet round recorded, the next one not yet).
+// Returns { floor, unknown, night, nightAt, mayBeOut, bulb1Risk, closing }; floor 99 = none.
+export function betWindow({ S, cur, N, open, wheel, active = null, station = 36 }) {
   const unknown = Math.max(1, N + 1 - S);
   const running = !!(wheel && wheel.fresh && wheel.running);
   const stopped = !!(wheel && wheel.fresh && !wheel.running);
-  if (open && N - open.start >= station - 2) return { floor: 99, unknown, night: 'tonight', bulb1Risk: false, closing: true };
-  if (open) {
-    return { floor: litOf(open) + unknown + 1, unknown, night: running ? 'tonight' : 'either', bulb1Risk: false };
-  }
+  const known = new Set([...(active || [])].filter((r) => r > S && r <= cur));
+  if (running) known.add(cur);
+  // a round that may still be quiet (recorded quiet, or not known to have his turns)
+  const quiet = (r) => (r <= S ? !!open && r >= open.start && !(open.w[r - open.start] > 0) : !known.has(r));
+  const canEnd = (from, to) => { for (let c = from; c <= to; c++) if (quiet(c) && quiet(c + 1)) return true; return false; };
+  // the ride the bet may join, and the first round its lights could go out in
+  const startedAt = !open && known.size ? Math.max(...known) : null;
+  const from = open ? S + 1 - open.idleRun : startedAt != null ? startedAt + 1 : null;
+  const nightAt = (b) => (from == null ? 'next' : open ? (canEnd(from, b) ? 'either' : 'tonight') : canEnd(from, b) ? 'startedEither' : 'started');
+  const mayBeOut = !!open && canEnd(from, cur - 2);
+  const out = (o) => ({ unknown, nightAt, mayBeOut, bulb1Risk: false, ...o });
+  if (open && N - open.start >= station - 2) return out({ floor: 99, night: 'tonight', closing: true });
+  if (open) return out({ floor: litOf(open) + unknown + 1, night: nightAt(N) });
   const floor = Math.max(1, unknown);
-  if (floor === 2 && S === cur - 1 && N === cur && stopped) return { floor: 1, unknown, night: 'next', bulb1Risk: true };
-  return { floor, unknown, night: 'next', bulb1Risk: false };
+  // (not once he is known to have run since the last record: he has started)
+  if (floor === 2 && S === cur - 1 && N === cur && stopped && startedAt == null) return out({ floor: 1, night: 'next', bulb1Risk: true });
+  return out({ floor, night: nightAt(N) });
+}
+
+// The rounds after S known to have his turns, from the wheel readings the page has seen, oldest first
+// ([{ t, work, running }], t = the reading's chain time): the wheel turning in a round, the counter going up between
+// two readings in the same round, or, in the round right after the last recorded one, the counter above SqueekCore's
+// count at its end (core = { S, cum }). A counter that went up across two rounds says nothing about which one.
+export function knownActive(seen, G, S, core = null) {
+  const out = new Set(), first = new Map();
+  for (const x of seen) {
+    const r = roundAt(x.t, G);
+    if (r <= S) continue;
+    if (x.running) out.add(r);
+    if (x.work == null) continue;
+    if (!first.has(r)) first.set(r, x.work); else if (x.work > first.get(r)) out.add(r);
+    if (core && core.cum != null && r === core.S + 1 && x.work > core.cum) out.add(r);
+  }
+  return out;
 }
 
 // The round a bet sent at chain time t counts in, and the latest it could count in once the wallet is done.
@@ -170,4 +215,22 @@ export function estimate({ open, S, cur, running, bets, potIn, lit, extra }) {
   const pending = Math.max(0, cur - S - 1);
   const w = [...open.w, ...Array(pending).fill(0), running ? 1 : 0];
   return Lights.settleIf(w, cur - open.start, lit, toEngine(list, open.start), potIn);
+}
+
+// One zero reading between running ones is a blip, not a stop (11-01 real night: the page showed "stopped for a
+// moment" once while the sensor never stopped). Given the last reading the page showed and a new one, returns what to
+// show: a zero right after running counts as a stop only once the sensor still says 0 holdMs after its first zero (by
+// the sensor's own clock); until then the last running reading stands, marked held. A failed read (next = null) keeps
+// the last fresh reading while it is younger than keepMs. zeroSince carries the first zero's time between calls.
+export function holdWheel(last, next, { zeroSince = null, lastAt = 0, at = Date.now(), holdMs = 8000, keepMs = 30000 } = {}) {
+  if (!next) {
+    if (last && last.fresh && at - lastAt < keepMs) return { wheel: last, zeroSince, kept: true, again: true };
+    return { wheel: null, zeroSince: null };
+  }
+  if (next.fresh && !next.running && last && last.fresh && last.running) {
+    const t = next.observedAt ?? at, since = zeroSince ?? t;
+    if (t - since < holdMs) return { wheel: { ...next, running: true, speed: last.speed, rpm: last.rpm, held: true }, zeroSince: since, again: true };
+    return { wheel: next, zeroSince: null };
+  }
+  return { wheel: next, zeroSince: next.fresh && next.running ? null : zeroSince };
 }

@@ -87,7 +87,7 @@ async function chain1() {
   for (const a of [me, me2, p3, p4, p5, p6, p7, p8, p9, noEth]) await c.mint(a, 1000n * W);
   const state = { wheel: 0, config: null };
   const web = await H.startWeb(state);
-  state.config = { ...c.chainCfg, chainName: 'Test chain', explorer: '', walkFrom: 39, clock: 'chain', statusApi: `${web.origin}/__status` };
+  state.config = { ...c.chainCfg, chainName: 'Test chain', explorer: '', walkFrom: 39, clock: 'chain', statusApi: `${web.origin}/__status`, wheelHoldMs: 0 }; // rounds are fast-forwarded here: the blip hold has its own tests in chain.test.mjs
   const wallet = H.createFakeWallet(anvil, { account: me, chainId: '0x1' });
   return { anvil, c, state, web, wallet, me, me2, p3, p4, p5, p6, p7, p8, p9, poor, noEth, ids: {} };
 }
@@ -114,7 +114,7 @@ async function S1(ctx) {
     check(await P.waitText('#act', /Switch to Test chain/), 'S1: connected on another network: the button is "Switch to Test chain"', await P.text('#act'));
     check(/another network/.test(await P.text('#walletLine')), 'S1: the wallet line says the wallet is on another network', await P.text('#walletLine'));
     await P.click('#act');
-    check(await P.waitText('#act', /^Bet 100 on bulb \d+$/), 'S1: after switching, the button offers a bet', await P.text('#act'));
+    check(await P.waitText('#act', /^Bet 100 SQK on bulb \d+$/), 'S1: after switching, the button offers a bet', await P.text('#act'));
     const li = wallet.log.indexOf('wallet_switchEthereumChain');
     check(li >= 0 && wallet.log.indexOf('wallet_addEthereumChain') > li && wallet.added && wallet.added.chainId === '0x7a69' && wallet.added.rpcUrls[0] === c.url && wallet.added.chainName === 'Test chain', 'S1: the unknown network was added to the wallet (chain 0x7a69, the page\'s RPC, its name), then switched to', JSON.stringify(wallet.added));
     check(await P.waitText('#walletLine', /you have 1,000 SQK/), 'S1: the wallet line shows your 1,000 SQK', await P.text('#walletLine'));
@@ -128,7 +128,7 @@ async function S1(ctx) {
     check(/^Pick a bet$/.test(await P.text('#act')) && await P.disabled('#act'), 'S1: a 20,000 SQK bet: the button is off', await P.text('#act'));
     check(/10 (to|and) 10,000 SQK/.test(await P.text('#status')), 'S1: a 20,000 SQK bet: the page says bets are 10 to 10,000 SQK', await P.text('#status'));
     await P.typeAmount(5000);
-    check(/^Bet 5,000 on bulb/.test(await P.text('#act')), 'S1: 5,000 SQK is a valid bet', await P.text('#act'));
+    check(/^Bet 5,000 SQK on bulb/.test(await P.text('#act')), 'S1: 5,000 SQK is a valid bet', await P.text('#act'));
     await P.click('#act');
     check(await P.waitText('#status', /Not enough SQK: you have 1,000, this bet needs 5,000\./), 'S1: more than you have: "Not enough SQK: you have 1,000, this bet needs 5,000."', await P.text('#status'));
     check(wallet.sends.length === sends0, 'S1: nothing was sent to the wallet for any of these');
@@ -153,7 +153,9 @@ async function S1(ctx) {
     const st = await P.state();
     check(st.floor <= 2 && st.night === 'next', `S1: asleep: the lowest bulb offered is ${st.floor}, for his next ride`, JSON.stringify(st));
     check(/for his next ride/.test(await P.text('#youSub')) && /^Bulb 3 · 30 min · no nights to count yet$/.test(await P.text('#pickOdds')), 'S1: "for his next ride" under your bulb; the odds next to the picker', `${await P.text('#youSub')} / ${await P.text('#pickOdds')}`);
-    check(/^If the lights go out right after bulb 3$/.test(await P.text('#moneyLabel')) && /^[+−±]/.test(await P.text('#money')), `S1: the one number: ${await P.text('#money')} if the lights go out right after bulb 3`);
+    // bets on 2, 5 and 20: bulb 3 gets its best case while he lights 3 or 4 bulbs (at 5, the bet on bulb 5 takes a slice)
+    check(/^Best case: he lights 3 to 4 bulbs$/.test(await P.text('#moneyLabel')) && /^[+−±][\d,.]* SQK$/.test(await P.text('#money')), `S1: the one number, with its unit: ${await P.text('#money')}, best case "${await P.text('#moneyLabel')}"`);
+    check(await P.text('#moneySub') === 'test SQK, no real money', 'S1: under the number, right above the bet buttons: "test SQK, no real money"', await P.text('#moneySub'));
     await page.screenshot({ path: join(SHOTS, 's1-before-bet.png') });
     const sendsBefore = wallet.sends.length;
     await P.click('#act');
@@ -221,7 +223,10 @@ async function S2(ctx) {
       const b = await P.waitBoard((x) => (ref.open ? x.lit === want.lit : true));
       seen.push(`${r}:${b && b.lit}${b && b.flicker ? '~' : ''}`);
       if (r === 44) {
-        check(/He just got on the wheel\. You can bet on bulb 2 or higher\./.test(await P.text('#status')) || /Bet placed|next ride/.test(await P.text('#status')), 'S2: round 45 starts with the wheel turning: "He just got on the wheel"', await P.text('#status'));
+        // (your bet from S1 was sent before he left: it is on the ride he just started, not "his next ride")
+        const st44 = await P.text('#status');
+        check(/He just got on the wheel\. You can bet on bulb 2 or higher\./.test(st44) || /^Your bet is on the ride he just started\.$/.test(st44) || /^Bet placed/.test(st44), 'S2: round 45 starts with the wheel turning: "He just got on the wheel" (with your bet from before: "Your bet is on the ride he just started.")', st44);
+        check(!/asleep|next ride/.test(st44) && /^This ride's bets$/.test(await P.text('#playersTitle')), 'S2: ... not "asleep" or "his next ride"; the list is "This ride\'s bets"', `${st44} / ${await P.text('#playersTitle')}`);
         check(b && b.msg === 'HE IS ON THE WHEEL * LIGHTS ON SOON', 'S2: the board: "HE IS ON THE WHEEL * LIGHTS ON SOON"', b && b.msg);
         // two players bet in the departure round: bulb 2 counts, bulb 1 (lights in the next round) is given back
         ctx.ids.p5 = (await c.betDirect(p5, 2, 100n * W)).betId;
@@ -230,9 +235,12 @@ async function S2(ctx) {
       if (r === 45) check(st.open && st.open.start === 45 && st.lit === 0 && b.msg === 'HE IS ON THE WHEEL * WARMING UP', 'S2: round 45 recorded: the ride is on, warming up, no bulb yet', JSON.stringify({ open: st.open, msg: b && b.msg }));
       if (ref.open && r > 45) {
         check(st.lit === want.lit && b.lit === want.lit, `S2: round ${r}: ${want.lit} bulbs lit on the page and on the board`, `${st.lit}/${b && b.lit}`);
-        const flick = want.quiet > 0 || !works.has(r + 1);
-        check(b.flicker === flick, `S2: round ${r}: the bulbs ${flick ? 'flicker (a quiet round)' : 'shine steadily'}`, JSON.stringify(b));
-        if (want.quiet === 1) check(b.msg === 'LIGHTS FLICKER ... IS HE ASLEEP?', `S2: round ${r} was quiet: "LIGHTS FLICKER ... IS HE ASLEEP?"`, b.msg);
+        // a quiet round recorded while the wheel turns again right now (what the cam shows): he is back, no flicker
+        const back = want.quiet === 1 && works.has(r + 1);
+        const flick = !back && (want.quiet > 0 || !works.has(r + 1));
+        check(b.flicker === flick, `S2: round ${r}: the bulbs ${flick ? 'flicker (a quiet round)' : back ? 'shine steadily (a quiet round, but the wheel turns again)' : 'shine steadily'}`, JSON.stringify(b));
+        if (back) check(b.msg === `HE IS BACK ON THE WHEEL * NEXT: BULB ${want.lit + 1}` && !b.resting, `S2: round ${r} was quiet and the wheel turns again: "HE IS BACK ON THE WHEEL * NEXT: BULB ${want.lit + 1}", and the cam runs`, JSON.stringify(b));
+        else if (want.quiet === 1) check(b.msg === 'LIGHTS FLICKER ... IS HE ASLEEP?', `S2: round ${r} was quiet: "LIGHTS FLICKER ... IS HE ASLEEP?"`, b.msg);
         else if (!works.has(r + 1)) check(b.msg === 'SHORT BREAK * LIGHTS FLICKER', `S2: round ${r + 1} is quiet so far: "SHORT BREAK * LIGHTS FLICKER"`, b.msg);
         else check(b.msg === `HE IS RUNNING * NEXT: BULB ${want.lit + 1}`, `S2: round ${r}: "HE IS RUNNING * NEXT: BULB ${want.lit + 1}"`, b.msg);
         check(st.floor === want.lit + (st.N + 1 - r) + 1, `S2: round ${r}: lowest bulb offered ${st.floor} = lit ${want.lit} + rounds not recorded yet ${st.N + 1 - r} + 1`, JSON.stringify(st));
@@ -243,7 +251,7 @@ async function S2(ctx) {
         // arrives while the wallet's allow window is open, and bulb 6 is then too close
         await wallet.switchAccount(p7);
         await P.waitText('#walletLine', new RegExp(p7.slice(0, 6)));
-        await P.waitText('#act', /^Bet 100 on bulb/);
+        await P.waitText('#act', /^Bet 100 SQK on bulb/);
         check(Number(await P.text('#bPick')) === 6 && !(await P.pickBulb(5)), 'S2: 3 bulbs lit, round 49 running: bulb 5 is not offered, bulb 6 is the lowest', await P.text('#bPick'));
         wallet.hold = async (tx) => {
           if (!tx.data.startsWith(C.SEL.approve)) return;
@@ -282,7 +290,13 @@ async function S2(ctx) {
         check(st.rides.length === 1 && st.rides[0].start === 45 && st.rides[0].C === 62 && st.rides[0].lit === 14 && !st.open, 'S2: the blackout: the page\'s night 1 = start 45, lights out in 62, 14 bulbs', JSON.stringify(st.rides));
         check(RIDES[0].start === 45 && RIDES[0].C === 62 && RIDES[0].lit === 14, 'S2: ... the same as night 1 in data/rides.json');
         const bo = await P.waitBoard((x) => /BLACKOUT/.test(x.msg));
-        check(bo && bo.msg === 'BLACKOUT AFTER 14 BULBS * SWEET DREAMS' && bo.lit === 14, 'S2: the board: "BLACKOUT AFTER 14 BULBS * SWEET DREAMS"', bo && bo.msg);
+        check(bo && bo.msg === 'BLACKOUT AFTER 14 BULBS * SWEET DREAMS', 'S2: the board: "BLACKOUT AFTER 14 BULBS * SWEET DREAMS"', bo && bo.msg);
+        // the 14 lights go out on the board, then it shows his next ride (no bulb lit, scrolled to bulb 1) with the
+        // bet for it on bulb 17 and the picked bulb; the sign still says how far he got
+        const of = await P.outFrame();
+        check(of && of.lit === 14 && of.outP >= 0 && of.outP < 1 && !of.markers.length && !of.pick, 'S2: while the lights go out, the board shows the 14 lit bulbs going dark (no marks)', JSON.stringify(of));
+        const nx = await P.waitBoard((x) => /BLACKOUT/.test(x.msg) && x.outP == null, 6000);
+        check(nx && nx.outP == null && nx.lit === 0 && nx.markers.includes(17) && nx.pick === 17, 'S2: then the board shows his next ride: no bulb lit, your bet on bulb 17 marked, the sign still "BLACKOUT AFTER 14 BULBS"', JSON.stringify(nx));
         check(await P.waitText('#status', /^Blackout after 14 bulbs\./), 'S2: the sentence under the dashboard starts "Blackout after 14 bulbs."', await P.text('#status'));
         check(await P.waitText('#mine', /Bulb 17 · 100 SQK.*waits for his next ride/), 'S2: the bet sent in the quiet round now waits for his next ride', await P.text('#mine'));
         check(/Bets for his next ride/.test(await P.text('#playersTitle')) && /bulb 17/.test(await P.text('#riders')), 'S2: and it is listed under "Bets for his next ride"', await P.text('#riders'));
@@ -338,7 +352,7 @@ async function S3(ctx) {
   const { s, P, page } = await openPage(ctx, { label: 'S3 phone 390x844 light, reduced motion', viewport: { width: 390, height: 844 }, scheme: 'light', reducedMotion: true });
   try {
     check(await P.waitText('#mine', /Bulb 3 · 100 SQK.*collected/), 'S3: a new visit: your collected bet from night 1 is shown', await P.text('#mine'));
-    check(await P.waitText('#act', /^Bet 100 on bulb/), 'S3: one bet per ride: you can bet on the next ride', await P.text('#act'));
+    check(await P.waitText('#act', /^Bet 100 SQK on bulb/), 'S3: one bet per ride: you can bet on the next ride', await P.text('#act'));
     // ---- you bet bulb 5 for his next ride
     await P.pickBulb(5);
     await P.click('#act');
@@ -356,7 +370,7 @@ async function S3(ctx) {
     check(bo && bo.msg === 'BLACKOUT AFTER 2 BULBS * SWEET DREAMS * BONUS POT 300 ROLLS ON' && bo.pot === 300, 'S3: the board: "BLACKOUT AFTER 2 BULBS * SWEET DREAMS * BONUS POT 300 ROLLS ON"', bo && bo.msg);
     check(await P.waitText('#status', /Blackout after 2 bulbs\. Your bulb 5 stayed dark: nobody won, so your bet rolls into the bonus pot\./), 'S3: "Blackout after 2 bulbs. Your bulb 5 stayed dark: nobody won, so your bet rolls into the bonus pot."', await P.text('#status'));
     check(await P.waitText('#mine', /Bulb 5 · 100 SQK.*stayed dark · rolls into the bonus pot/), 'S3: your bets: "stayed dark · rolls into the bonus pot"', await P.text('#mine'));
-    check(/^Bet 100 on bulb/.test(await P.text('#act')), 'S3: nothing to collect, the button offers the next bet', await P.text('#act'));
+    check(/^Bet 100 SQK on bulb/.test(await P.text('#act')), 'S3: nothing to collect, the button offers the next bet', await P.text('#act'));
     await page.screenshot({ path: join(SHOTS, 's3-rolled.png'), fullPage: true });
 
     // ---- night 3: you bet bulb 2, p4 bulb 3, p5 bulb 8 (round 85); he leaves in 99, bulbs in 100-103, out in 104-105
@@ -399,7 +413,7 @@ async function S3(ctx) {
     await wallet.emit('chainChanged', '0x1');
     check(await P.waitText('#act', /^Switch to Test chain$/), 'S3: the wallet moved to another network: "Switch to Test chain"', await P.text('#act'));
     await P.click('#act');
-    check(await P.waitText('#act', /^Bet 100 on bulb/), 'S3: switched back in one step', await P.text('#act'));
+    check(await P.waitText('#act', /^Bet 100 SQK on bulb/), 'S3: switched back in one step', await P.text('#act'));
     check(!wallet.log.slice(l0).includes('wallet_addEthereumChain'), 'S3: a known network is not added again');
 
     // ---- an old wheel reading: the page follows the records only
@@ -415,7 +429,7 @@ async function S3(ctx) {
     check(/^No bets right now$/.test(await P.text('#act')) && await P.disabled('#act'), 'S3: ... and "No bets right now"', await P.text('#act'));
     await c.record(112);
     await P.refresh({ S: 112 });
-    check(await P.waitText('#act', /^Bet 100 on bulb/), 'S3: the records arrive: bets are offered again', await P.text('#act'));
+    check(await P.waitText('#act', /^Bet 100 SQK on bulb/), 'S3: the records arrive: bets are offered again', await P.text('#act'));
 
     // ---- the core pauses its records
     await c.setPaused(true);
@@ -424,7 +438,7 @@ async function S3(ctx) {
     check(/^No bets right now$/.test(await P.text('#act')), 'S3: ... and "No bets right now"', await P.text('#act'));
     await c.setPaused(false);
     await P.refresh();
-    await P.waitText('#act', /^Bet 100 on bulb/);
+    await P.waitText('#act', /^Bet 100 SQK on bulb/);
 
     // ---- a bet the network includes too late: it must fail (not quietly move to a later round), and say so
     await P.pickBulb(4);
@@ -467,7 +481,7 @@ async function chain2() {
   await c.record(823, works);
   const state = { wheel: 300, config: null };
   const web = await H.startWeb(state);
-  state.config = { ...c.chainCfg, chainName: 'Test chain', explorer: '', walkFrom: 0, clock: 'chain', statusApi: `${web.origin}/__status` };
+  state.config = { ...c.chainCfg, chainName: 'Test chain', explorer: '', walkFrom: 0, clock: 'chain', statusApi: `${web.origin}/__status`, wheelHoldMs: 0 }; // rounds are fast-forwarded here: the blip hold has its own tests in chain.test.mjs
   const wallet = H.createFakeWallet(anvil, { account: me, chainId: '0x7a69' });
   wallet.known.add('0x7a69');
   return { anvil, c, state, web, wallet, me, p3, works };
@@ -543,7 +557,7 @@ async function S4(ctx) {
     await wallet.switchAccount(p3);
     check(await P.refresh({ S: 1082, bets: 3, ms: 20_000 }), 'S4: the page reads the second long spell and ride I');
     await P.waitText('#walletLine', new RegExp(`${p3.slice(0, 6)}`));
-    await P.waitText('#act', /^Bet 100 on bulb/);
+    await P.waitText('#act', /^Bet 100 SQK on bulb/);
     const n1 = wallet.sends.length, k1 = await P.saidCount();
     await P.click('#act');
     const placed = await P.waitSaid(/Bet placed: 100 SQK on bulb \d+, for his next ride\./, k1, 25_000);

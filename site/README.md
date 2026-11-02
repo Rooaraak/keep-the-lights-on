@@ -32,6 +32,7 @@ this folder (for a local test chain).
 | `lightsOn` | The game contract. Empty until it is deployed: the page then shows the live board, the odds and "Betting opens soon", with no wallet buttons. |
 | `deployBlock` | Block the game was deployed in. Your past bets are found from there (BetPlaced logs); 0 skips that and only shows bets the page reads anyway. |
 | `chainName`, `explorer` | Optional: the network's name on the buttons, and the block explorer for links. |
+| `ethFaucet` | Optional: a link (https) where a wallet with no test ETH can get some for the network fee. |
 | `statusApi` | Optional, default `https://api.squeekchain.com/v1/status`. |
 | `genesis`, `walkFrom`, `clock` | Optional, for local test chains: round 1's start time (read from the contract once one is set), the round to start reading a mock core after (it must follow a blackout), and `"chain"` / `"device"` to force the clock. |
 
@@ -102,6 +103,20 @@ is one higher than it will be a minute later. Near the end of a round the bet al
 The wheel speed (`speedMmPerSecond` on a fresh reading from the status API) only animates the wheel and says
 whether he's running this minute; it never decides a bulb. `coreStatus` is never used.
 
+**Which ride a bet counts for** (the words under your bulb, the sentence, "Bet placed: …"): a bet moves to his next
+ride only if the lights go out before its round (two quiet rounds, C and C + 1; a bet sent in C or later is for the
+next ride). So the page needs to know which rounds not recorded yet already have his turns. It keeps the wheel
+readings it has seen: a round is known to have his turns when the wheel turned in it, or the status API's
+`cumulativeWorkUnits` (the same counter SqueekCore records as `cumulativeWork`; checked against every round of the
+11-01 night) went up inside it or is above SqueekCore's count at its start. Any other round may still be quiet.
+Then: "for tonight's ride" only when no blackout can come before the bet's round (he runs now, or he stopped after
+running in this round: "if he stays asleep, the lights go out and your bulb stays dark"); "for tonight, or his next
+ride if the lights go out" when one can (a round quiet so far, the bet landing in the next round, or a quiet round
+recorded and the next one ended but not recorded yet: then the sign says "HE IS BACK ON THE WHEEL" without promising
+the next bulb); "for the ride he just started" when no ride is recorded yet but he got on the wheel; "for his next
+ride" when he is asleep. "Bet placed" uses the round the bet landed in (from its receipt). This only chooses words:
+the lowest bulb offered never depends on it.
+
 ## Wallet steps
 
 Connect → switch to Sepolia (or add it) → the page checks your SQK and simulates the bet → **allow** the game to
@@ -119,12 +134,37 @@ enough SQK, a bet outside 10-10,000 SQK, no test ETH for the fee, already bet on
 close, a bet that arrived too late, the game catching up, the game still counting. If the game is ended (`void`),
 the dashboard says so and offers only Collect for the bets that come back.
 
+**A page node that lags behind the wallet** (public RPCs are several nodes; the Sepolia rehearsal hit this): what the
+page saw go through is kept until its node shows it. A placed bet (from the receipt's `BetPlaced` log) shows at once
+as your bet, the button turns off and the balance drops, so the same bet can't be sent twice; a collect (from its
+`Claimed` / `Refunded` logs) leaves the button at once. After the allow step the bet is simulated on the wallet's own
+node too (`eth_call` through the wallet); if no node shows the allow within about 15 s the page says "Your allow went
+through, but the network is slow to show it…" (never "wasn't allowed") and remembers it, so the next press goes
+straight to the bet. A bet that fails on chain with no reason from the page's node is explained from the wallet's
+node ("You already have a bet on this ride…").
+
+**No wallet in the browser** (a phone opening the page from X): the button says "How to bet on a phone" and the
+answer says what to do, with "Open in MetaMask" (this page in MetaMask's browser) and "Copy the link". On a phone,
+an answer to a tap scrolls into view while the button is on screen.
+
+**No test ETH** for the network fee: the page reads the wallet's test ETH and says where to get some (`ethFaucet` in
+the config is the link), without asking the wallet for anything.
+
+**The one number** is in SQK (unit in small print) and labelled as the best case, with when it holds ("Best case: he
+lights 6 to 11 bulbs"); under it, "practice SQK, no real money" in the rehearsal, "test SQK, no real money" otherwise.
+
+**Your last ride** (a win, a refund, several wins together, or a bet that stayed dark on his last ride) fills the
+dashboard ("Bulb 20 · stayed dark", "Last ride −100 SQK") and the sentence under the button gives the amount. A win
+waiting to be collected never blocks a new bet: the picker stays, the button is "Collect …" until you pick a bulb or an
+amount, then it is the bet and the win gets a "Collect …" link in the sentence. Winnings never expire.
+
 ## Tests (offline unless noted; no installs)
 
 ```
 node site/test/engine.test.mjs        # engine == approved copy, 24 vectors, the lowest bulb on rounds 1-780, nights == data/rides.json
 node site/test/chain.test.mjs         # encoders vs cast calldata, decoders vs saved Sepolia answers, errors, RPC fallback (--live: 3 real reads)
 node site/test/anvil.test.mjs         # real LightsOn bytecode on local anvil: reads, the page's numbers == the contract's payouts, bet/allow/collect via a fake wallet
+node site/test/live.test.mjs          # live.js in node (no browser) on anvil through a page node that lags: bet, allow, blackout, collect, no wallet
 node site/test/smoke.test.cjs         # Chrome, live without a contract (asleep, running, break, blackout) + replay, 360 px light/reduced motion and 1280 px dark (--real: one pass on Sepolia)
 node site/test/contract.smoke.test.mjs  # Chrome on anvil with the contract: connect, switch, allow + bet, blackout, collect
 node site/test/static.test.mjs        # page skeleton, local files, no libraries, wording

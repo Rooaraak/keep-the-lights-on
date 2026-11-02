@@ -327,7 +327,8 @@ export function pageTools(page) {
         const live = window.lightsPage.live;
         if (live.__wrapped) return;
         const v0 = live.view;
-        live.view = (time, step) => { const v = v0(time, step); window.__board = { lit: v.lit, flicker: !!v.flicker, resting: !!v.resting, pot: v.pot || 0, msg: v.msg, pick: v.pick, markers: (v.markers || []).map((m) => m.bulb) }; return v; };
+        // (outP: the lights going out after a blackout, 0 -> 1, else null; __outFrame keeps the last such frame)
+        live.view = (time, step) => { const v = v0(time, step); window.__board = { lit: v.lit, flicker: !!v.flicker, resting: !!v.resting, pot: v.pot || 0, msg: v.msg, pick: v.pick, markers: (v.markers || []).map((m) => m.bulb), outP: v.outP ?? null }; if (v.outP != null) window.__outFrame = window.__board; return v; };
         live.__wrapped = true;
         // every sentence shown under the dashboard, including the short-lived ones
         window.__said = window.__said || [];
@@ -343,6 +344,7 @@ export function pageTools(page) {
       return null;
     },
     board: () => page.evaluate(() => window.__board || null),
+    outFrame: () => page.evaluate(() => window.__outFrame || null),
     async waitBoard(fn, ms = 6000) {
       const until = Date.now() + ms;
       let b = null;
