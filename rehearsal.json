@@ -3,8 +3,8 @@
   "chainName": "Sepolia",
   "rpc": [
     "https://ethereum-sepolia-rpc.publicnode.com",
-    "https://sepolia.drpc.org",
-    "https://rpc.sepolia.org"
+    "https://sepolia.gateway.tenderly.co",
+    "https://rpc.sepolia.ethpandaops.io"
   ],
   "explorer": "https://sepolia.etherscan.io",
   "ethFaucet": "https://cloud.google.com/application/web3/faucet/ethereum/sepolia",
