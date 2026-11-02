@@ -48,9 +48,9 @@ canvas { display: block; width: 100%; }
 .sign, .cam, .board-wrap { min-width: 0; }
 .sign { overflow: hidden; }
 #cam { aspect-ratio: 72 / 42; }
-#board { aspect-ratio: 99 / 56; }
+#board { aspect-ratio: 88 / 56; }   /* a page of 6 bulbs; 8 on wider boards (board.js sets the exact ratio) */
 #sign { aspect-ratio: 134 / 10; }
-@media (min-width: 560px) { #board { aspect-ratio: auto; height: 336px; } }
+@media (min-width: 848px) { #board { aspect-ratio: 116 / 56; } }
 @media (min-width: 520px) and (max-width: 760px) { #sign { aspect-ratio: 69 / 19; } }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 /* the top of the page, as on the share card: the LED title, the hamster cam, one line */
