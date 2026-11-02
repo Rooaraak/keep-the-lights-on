@@ -359,6 +359,24 @@ try {
   await pg.$('faucet').listeners.click[0]();
   await sleep(300);
   ok(pg.t('status') === 'You said no in your wallet, so nothing was sent.' && E.w.sends.length === 2 && E.w.sends[1].refused, 'the practice SQK button, then saying no in the wallet: "You said no in your wallet, so nothing was sent."', pg.t('status'));
+  // the real game (not the rehearsal): a wallet with test ETH but no SQK hears where SQK comes from, with a link to the
+  // practice page; the button says "Not enough SQK" and there is no practice tap
+  {
+    const Z = walletFor(c.accounts[11]);
+    pg.stop();
+    pg = startPage(Z.provider, { ...config, practiceUrl: '?config=rehearsal.json' });
+    await pg.until(() => /Connect wallet/.test(pg.t('act')));
+    await pg.live.act(); await pg.until(() => /Switch to/.test(pg.t('act')));
+    await pg.live.act();
+    ok(await pg.until(() => /no SQK yet/.test(pg.t('status')), 30_000), 'the real game, a wallet with no SQK: the sentence under the button says so', show(dash(pg)));
+    const zl = pg.$('status').links;
+    ok(pg.t('status').startsWith('Your wallet has no SQK yet. SQK comes from staking Squeeks on Squeekchain. Meanwhile you can play the same game with free practice SQK.') && zl.length === 1 && zl[0].href === '?config=rehearsal.json' && zl[0].textContent === 'Try it with practice SQK', '"Your wallet has no SQK yet …", with a link "Try it with practice SQK" to the practice page', show({ status: pg.t('status'), links: zl.map((x) => [x.href, x.textContent]) }));
+    ok(pg.t('act') === 'Not enough SQK' && pg.$('faucet').hidden, 'the button says "Not enough SQK", and the real game has no practice tap', show({ act: pg.t('act'), faucet: pg.$('faucet').hidden }));
+    ok(!JARGON.test(pg.t('status')), 'plain words', pg.t('status'));
+    await pg.live.act();
+    await sleep(300);
+    ok(/^Not enough SQK: you have 0, this bet needs 100\./.test(pg.t('status')) && pg.$('status').links.length === 1 && Z.w.sends.length === 0, 'pressing it: "Not enough SQK: you have 0, this bet needs 100." with the practice link, and nothing sent', show({ status: pg.t('status'), sends: Z.w.sends.length }));
+  }
   pg.stop();
   }
   if (part('lost')) {

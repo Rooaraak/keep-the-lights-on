@@ -11,5 +11,6 @@
   "squeekCore": "0x980b4424c007caf7a1f3670b48c8eaef7ebc3d44",
   "sqk": "0x5501e1fa81be1c3f49225fa7668da0245d07db60",
   "lightsOn": "",
-  "deployBlock": 0
+  "deployBlock": 0,
+  "practiceUrl": "?config=rehearsal.json"
 }

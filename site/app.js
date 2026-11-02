@@ -43,6 +43,11 @@ function links(config) {
     void i;
   });
   if (!config.lightsOn) box.append(' · the game contract is not deployed yet');
+  // the real game's page: a way to the practice version (same game, free practice SQK)
+  if (!config.practice && typeof config.practiceUrl === 'string' && /^(\?|https:\/\/)/.test(config.practiceUrl)) {
+    const a = document.createElement('a'); a.href = config.practiceUrl; a.textContent = 'practice version (free SQK)';
+    box.append(' · ', a);
+  }
 }
 
 async function boot() {

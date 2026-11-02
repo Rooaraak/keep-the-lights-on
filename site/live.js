@@ -45,6 +45,9 @@ export function createLive({ $, setText, setStatus, config, base, onRides, provi
   // the bets are play money: practice SQK in the rehearsal, test SQK on the test network
   const PLAY = `${config.practice ? 'practice' : 'test'} SQK, no real money`;
   const ethFaucet = typeof config.ethFaucet === 'string' && /^https:\/\//.test(config.ethFaucet) ? config.ethFaucet : null;
+  // the real game links to the practice page (same game, free practice SQK) for wallets without SQK
+  const practiceUrl = !config.practice && typeof config.practiceUrl === 'string' && /^(\?|https:\/\/)/.test(config.practiceUrl) ? config.practiceUrl : null;
+  const practiceLink = practiceUrl ? [{ href: practiceUrl, text: 'Try it with practice SQK' }] : [];
 
   const L = {
     active: false,
@@ -480,6 +483,8 @@ export function createLive({ $, setText, setStatus, config, base, onRides, provi
     L.msg = null;
     // a wallet without test ETH can't send anything (not even for practice SQK): first, where to get some
     if (hasGame && L.account && L.chainOk && L.eth === 0n && !d.mine && !d.voided) return showMessage(ethMessage());
+    // the real game and a wallet with no SQK at all: where SQK comes from, and the practice page meanwhile
+    if (practiceUrl && hasGame && L.account && L.chainOk && L.balance === 0n && !d.mine && !d.voided && !d.collectIds.length) return showMessage(noSqkMessage());
     const line = statusLine(d, { floor, noBulb, recordsLate, pick });
     if (typeof line === 'string') setStatus(line); else showMessage(line, false);
   }
@@ -489,6 +494,9 @@ export function createLive({ $, setText, setStatus, config, base, onRides, provi
     const sep = netName === 'Sepolia';
     const text = `Your wallet needs a little test ETH${sep ? ' on Sepolia' : ''} to pay the network fee. Test ETH is free from a ${sep ? 'Sepolia ' : ''}faucet.${practiceTap() ? ' Then tap Get 1,000 practice SQK below.' : ''}`;
     return { text, links: ethFaucet ? [{ href: ethFaucet, text: 'Get free test ETH', blank: true }] : [] };
+  }
+  function noSqkMessage() {
+    return { text: 'Your wallet has no SQK yet. SQK comes from staking Squeeks on Squeekchain. Meanwhile you can play the same game with free practice SQK.', links: practiceLink };
   }
   // (eth: it goes away as soon as the wallet has some)
   const sayEth = () => { const m = ethMessage(); say(m.text, null, 60_000, { links: m.links, eth: true }); };
@@ -841,7 +849,7 @@ export function createLive({ $, setText, setStatus, config, base, onRides, provi
     if (!amount) return say('A bet must be a whole number from 10 to 10,000 SQK.');
     // no test ETH: the wallet couldn't pay the fee (looked at again first: he may just have got some)
     if (L.eth === 0n && (await ethNow()) === 0n) return sayEth();
-    if (L.balance != null && L.balance < amount) return say(`Not enough SQK: you have ${sqkText(L.balance)}, this bet needs ${sqkText(amount)}.${practiceTap() ? ' Tap Get 1,000 practice SQK below.' : ''}`);
+    if (L.balance != null && L.balance < amount) return say(`Not enough SQK: you have ${sqkText(L.balance)}, this bet needs ${sqkText(amount)}.${practiceTap() ? ' Tap Get 1,000 practice SQK below.' : ''}`, null, 20_000, { links: practiceLink });
     const d0 = derive();
     if (d0.mine || (L.pending && same(L.pending.account, L.account))) return; // your bet is in (maybe not on the page's node yet)
     const bulb = shown(d0);
