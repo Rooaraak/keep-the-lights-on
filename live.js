@@ -987,7 +987,7 @@ export function createLive({ $, setText, setStatus, config, base, onRides, provi
     enter() {
       L.active = true; L.lastDash = -1;
       $('replayControls').hidden = true; $('results').hidden = true;
-      $('act').hidden = !hasGame; $('soon').hidden = hasGame; $('amountRow').hidden = !hasGame; $('amtOther').hidden = !hasGame;
+      $('act').hidden = !hasGame; $('soon').hidden = hasGame; $('amountRow').hidden = !hasGame; $('amtLabel').hidden = !hasGame; $('amtOther').hidden = !hasGame;
       $('playersPanel').hidden = !hasGame;
       setText('eyebrow', hasGame ? (config.practice ? 'Squeekchain · live rehearsal · practice SQK, no real money' : 'Squeekchain · live on the test network · test SQK, no real money') : 'Squeekchain · live · betting opens soon');
       for (const id of ['b50', 'b100', 'b200']) $(id).setAttribute('aria-pressed', String($(id).dataset.bet === L.amountText));

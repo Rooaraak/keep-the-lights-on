@@ -293,7 +293,7 @@ export function createReplay({ $, setText, setStatus }) {
     odds: () => DATA.odds,
     enter() {
       S.active = true;
-      $('replayControls').hidden = false; $('amtOther').hidden = true; $('soon').hidden = true; $('act').hidden = false; $('amountRow').hidden = false;
+      $('replayControls').hidden = false; $('amtOther').hidden = true; $('soon').hidden = true; $('act').hidden = false; $('amountRow').hidden = false; $('amtLabel').hidden = false;
       $('walletLine').hidden = true; $('minePanel').hidden = true; $('playersPanel').hidden = false;
       setText('playersTitle', 'Pretend players');
       for (const id of ['b50', 'b100', 'b200']) $(id).setAttribute('aria-pressed', String(+$(id).dataset.bet === S.bet));
