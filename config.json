@@ -10,7 +10,7 @@
   "ethFaucet": "https://cloud.google.com/application/web3/faucet/ethereum/sepolia",
   "squeekCore": "0x980b4424c007caf7a1f3670b48c8eaef7ebc3d44",
   "sqk": "0x5501e1fa81be1c3f49225fa7668da0245d07db60",
-  "lightsOn": "",
-  "deployBlock": 0,
+  "lightsOn": "0x262c88c4eedf3d543d2523f87fa47701ac429844",
+  "deployBlock": 12048847,
   "practiceUrl": "?config=rehearsal.json"
 }
