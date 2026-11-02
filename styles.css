@@ -153,7 +153,7 @@ details p { margin: 0 0 12px; color: var(--dim); max-width: 70ch; }
   .stage .lede { font-size: 12px; }
 }
 /* wide but short (a 1366 x 768 laptop): a smaller title keeps the bet button on the first screen */
-@media (min-width: 1340px) and (max-height: 820px) { .sign { max-width: 1040px; } .hero { gap: 10px; } }
+@media (min-width: 1340px) and (max-height: 820px) { .sign { max-width: 1040px; } .hero { gap: 10px; } #board { aspect-ratio: 150 / 56; } }
 /* up to 920 px the bet controls take a row of their own under "your bulb" and the one number (with a game the
    controls are about 440 px wide, which would leave the two cells too narrow beside them) */
 @media (max-width: 920px) {

@@ -50,6 +50,12 @@ export function setup() {
   // exactly one page wide, so the dots grow with the board and a short night still fills a good part of the row.
   B.fit = w >= 760 ? 8 : 6;
   B.cols = B.fit * PITCH + 4; B.rows = ROWS;
+  // a wide but short screen (a 1366 x 768 laptop): the board may be at most (window height - 450 px) tall, so the bet
+  // button stays on the first screen; the row of 8 then sits in the middle of a wider grid (the same dots, margins)
+  if (typeof innerWidth === 'number' && innerWidth >= 1340) {
+    const cap = Math.max(280, (innerHeight || 900) - 450);
+    if (w * ROWS / B.cols > cap) B.cols = Math.ceil(w * ROWS / cap);
+  }
   B.x0 = Math.floor((B.cols - ((B.fit - 1) * PITCH + BW)) / 2);
   canvas.style.aspectRatio = `${B.cols} / ${B.rows}`;   // round dots: the page's style already gives this ratio (no jump)
   B.buf = new Int8Array(B.cols * B.rows); B.lvl = new Uint8Array(B.cols * B.rows);
@@ -151,14 +157,23 @@ const WIRES = [[4, 6], [6, 6], [4, 7], [6, 7]], COIL = [[4, 8], [5, 8], [6, 8]],
 const BW = 11, BH = 14, MID = { x: 5, y: 8 };                                   // the filament's middle, where light starts
 // rows: the sign 1-7, sky and bonus pot 10-16, bulb numbers 18-22, cable 25, bulbs 26-39, bets 42-45, town to 55
 const PITCH = 14, NUM_Y = 18, CABLE = 25, BULB_Y = 26, MARK_Y = 42, BASE = 54;
-const visibleBulbs = () => B.fit || 1;
+const visibleBulbs = () => B.fit || 8;   // (8 before the board is set up, e.g. in node tests)
 const lastPage = () => Math.max(0, Math.ceil(24 / visibleBulbs()) - 1);
 // The page the board shows: the one with the last lit bulb (a full row stays up). While he keeps running, a full row
 // turns to the next page once its last bulb is fully on, so the next bulb can warm up there. During a blackout the
 // row that goes dark stays in view.
-const TURN_WAIT = 1.1, TURN_TIME = .75;
+const TURN_WAIT = 1.1, TURN_TIME = .75, TURN_BACK = .45;
+const pagesOf = (lit) => Math.max(1, Math.ceil(lit / visibleBulbs()));
+// how long the lights take to go out after a blackout: 1.6 s, and 1.4 s more for each page the row goes back over
+export const outSeconds = (lit) => 1.6 + 1.4 * (pagesOf(lit) - 1);
 function pageFor(v, time) {
   const P = visibleBulbs(), lit = v.lit;
+  if (v.outP != null && lit > P) {
+    // the lights go out from the last bulb back to the first: the row follows them back, a page at a time (it moves
+    // on when the wave is half way through a bulb, so the page's last bulb is seen going out)
+    const q = Math.max(0, v.outP - .05 - .15) / .65, front = Math.max(1, Math.ceil(lit - q * (lit - 1)));
+    return Math.min(lastPage(), Math.floor((front - 1) / P));
+  }
   let pg = lit === 0 ? 0 : Math.floor((lit - 1) / P);
   if (lit > 0 && lit % P === 0 && lit < 24 && v.outP == null && !v.resting) {
     const at = A.litAt[lit];
@@ -170,16 +185,20 @@ function pageFor(v, time) {
 function viewOff(v, time) {
   const P = visibleBulbs(), pg = pageFor(v, time);
   if (A.page == null || REDUCED) { A.page = pg; A.turn = null; }
-  else if (pg !== A.page) { A.turn = { from: (A.turn ? A.off : A.page * P), t0: time }; A.page = pg; }
-  let off = A.page * P;
+  else if (pg !== A.page) { A.turn = { from: (A.turn ? A.off : pageStart(A.page)), t0: time, dur: pg < A.page && v.outP != null ? TURN_BACK : TURN_TIME }; A.page = pg; }
+  let off = pageStart(A.page);
   if (A.turn) {
-    const p = Math.min(1, (time - A.turn.t0) / TURN_TIME), e = p < .5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
+    const p = Math.min(1, (time - A.turn.t0) / A.turn.dur), e = p < .5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
     off = A.turn.from + (off - A.turn.from) * e;
     if (p >= 1) A.turn = null;
   }
   A.off = off;
   return off;
 }
+// the first bulb of page pg, less one (the last page ends at bulb 24)
+const pageStart = (pg) => Math.max(0, Math.min(24 - visibleBulbs(), pg * visibleBulbs()));
+// the bulbs on the row right now: the page's own, or every one in view while it turns
+const onRow = (k, x) => (A.turn ? x > -BW && x < B.cols : k > Math.round(A.off || 0) && k <= Math.round(A.off || 0) + visibleBulbs());
 const bulbX = (k, off) => Math.round((B.x0 || 0) + (k - 1 - off) * PITCH);     // left edge of bulb k
 const STARS = Array.from({ length: 44 }, (_, i) => ({ x: (i * 37 + 23) % 331, y: 10 + (i * 5) % 7, ph: i * 1.7, rate: .7 + (i % 5) * .23 }));
 // now and then a shooting star crosses the sky band
@@ -281,7 +300,7 @@ function afterglow(x, a) {
 // under the bulbs: a green arrow for your bet, up to three dots for everyone else's
 function markers(list, off, lit) {
   for (const m of list) {
-    const x = bulbX(m.bulb, off); if (x < -BW || x >= B.cols) continue;
+    const x = bulbX(m.bulb, off); if (x < -BW || x >= B.cols || !onRow(m.bulb, x)) continue;
     const c = x + MID.x;
     if (m.me) {
       // a new bet: the arrow drops in from the bulb and bounces, and a green ring goes round the bulb
@@ -378,8 +397,7 @@ export function draw(v, time, dt) {
   cable(off, glow);
   const after = [];
   for (let k = 1; k <= 24; k++) {
-    const x = bulbX(k, off); if (x < -BW || x >= B.cols) continue;
-    if (!A.turn && (x < 0 || x + BW > B.cols)) continue;   // the next page's first bulb shows only while the row turns
+    const x = bulbX(k, off); if (x < -BW || x >= B.cols || !onRow(k, x)) continue;   // other pages' bulbs only while it turns
     const sp = A.sparks.find((s) => s.k === k), a = sp ? time - sp.t0 : null;
     let st = 'dark', opts = { flicker: v.flicker };
     if (outP != null) {
@@ -431,14 +449,14 @@ export function bulbAt(clientX, lit) {
   const rect = canvas.getBoundingClientRect(), cx = (clientX - rect.left) / rect.width * B.cols;
   const k = Math.floor((cx - (B.x0 || 0) + (PITCH - BW) / 2) / PITCH + (A.off || 0)) + 1;
   void lit;
-  return k >= 1 && k <= 24 ? k : 0;
+  return k >= 1 && k <= 24 && onRow(k, bulbX(k, A.off || 0)) ? k : 0;
 }
 // Where bulb k's glass is on the page right now (for tests), or null when it is scrolled out of view.
 export function bulbPoint(k, lit) {
   if (!canvas) return null;
   void lit;
   const x = bulbX(k, A.off || 0);
-  if (x < 0 || x + BW > B.cols) return null;
+  if (x < 0 || x + BW > B.cols || !onRow(k, x)) return null;
   const rect = canvas.getBoundingClientRect();
   return { x: rect.left + (x + MID.x + .5) / B.cols * rect.width, y: rect.top + (BULB_Y + MID.y + .5) / B.rows * rect.height };
 }
