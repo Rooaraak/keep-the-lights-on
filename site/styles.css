@@ -101,6 +101,7 @@ button:focus-visible, select:focus-visible, summary:focus-visible, input:focus-v
 .hint { margin: 0; font-size: 15px; min-height: 1.55em; }
 .wallet-line { margin: -6px 0 0; color: var(--dim); font-size: 12px; overflow-wrap: anywhere; }
 .pick { display: flex; gap: 8px; flex-wrap: wrap; }
+.pick-group { display: flex; flex-direction: column; gap: 4px; min-width: 0; }   /* a small label over the bulb picker and over the amounts */
 #bPick { color: var(--ink); font-weight: 600; min-width: 42px; cursor: default; }
 .steps { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; counter-reset: s; }
 .steps li { display: grid; gap: 4px; align-content: start; counter-increment: s; }
