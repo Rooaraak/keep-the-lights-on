@@ -29,7 +29,8 @@ const missing = [...used].filter((id) => !ids.has(id));
 ok(!missing.length, `every element the scripts use is in index.html (${used.size})`, missing.join(', '));
 
 const cfg = JSON.parse(read('config.json'));
-ok(cfg.chainId === 11155111 && Array.isArray(cfg.rpc) && cfg.rpc.length >= 2 && cfg.squeekCore && cfg.sqk && cfg.lightsOn === '' && cfg.deployBlock === 0, 'config.json: chainId 11155111, rpc list, squeekCore, sqk, lightsOn "", deployBlock 0');
+// the real game, deployed through IMD on 2026-11-02 (launch 2876): its address and the block it was deployed in
+ok(cfg.chainId === 11155111 && Array.isArray(cfg.rpc) && cfg.rpc.length >= 2 && cfg.squeekCore && cfg.sqk && cfg.lightsOn === '0x262c88c4eedf3d543d2523f87fa47701ac429844' && cfg.deployBlock === 12048847 && !cfg.practice, 'config.json: Sepolia, an rpc list, SqueekCore, SQK, the real game 0x262c…9844 from block 12048847, not practice');
 
 // all network access lives in chain.js
 const net = js.filter((f) => f !== 'chain.js' && f !== 'app.js' && /\bfetch\(|eth_|window\.ethereum|\.request\(/.test(read(f)));
