@@ -504,7 +504,7 @@ export function createLive({ $, setText, setStatus, config, base, onRides, provi
   }
 
   // The "Share on X" link: your bet while it waits or runs, or your win until it is collected. Nothing else.
-  const pageUrl = () => (typeof location !== 'undefined' && location.origin ? `${location.origin}${location.pathname}${location.search}` : 'https://rooaraak.github.io/keep-the-lights-on/');
+  const pageUrl = () => (typeof location !== 'undefined' && location.origin ? `${location.origin}${location.pathname}${location.search}` : 'https://keepthelightson.xyz/');
   function shareLink(d) {
     const el = $('share'), unit = config.practice ? 'practice SQK' : 'SQK';
     let text = null, label = null;
