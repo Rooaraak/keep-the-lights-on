@@ -7,11 +7,11 @@ the lit bulbs share the pot.
 Everything is settled on Sepolia straight from SqueekCore's records of his wheel. There is no server, no admin and no
 off-chain oracle: the contract reads the rounds itself, and anyone can settle a night or collect for anyone.
 
-- **Play:** <https://rooaraak.github.io/keep-the-lights-on/>. The real game, with Squeekchain's SQK on Sepolia.
+- **Play:** <https://keepthelightson.xyz/>. The real game, with Squeekchain's SQK on Sepolia.
 - **No SQK? Practice:** tap **Practice (free)** on the page, or open
-  <https://rooaraak.github.io/keep-the-lights-on/?config=rehearsal.json>. The same game following his real rounds, with a
+  <https://keepthelightson.xyz/practice/>. The same game following his real rounds, with a
   free practice token: the page has a button that gives you 1,000 practice SQK.
-- **Watch a past night:** <https://rooaraak.github.io/keep-the-lights-on/#past>. This is a replay of one of his real
+- **Watch a past night:** <https://keepthelightson.xyz/#past>. This is a replay of one of his real
   nights, with nine made-up players.
 
 ## How it works
