@@ -46,12 +46,12 @@ export function attach(el) {
 export function setup() {
   if (!canvas) return;
   const w = canvas.parentElement.clientWidth || 600;
-  // finer dots than the hamster cam, so the bulbs can carry detail: 96 across on phones, about 6 px on wider screens
-  // finer dots than the hamster cam, so the bulbs carry detail. Phones: exactly 7 whole bulbs across (99 dots);
-  // wider screens: about 6 px dots, the string centred so no bulb is cut at either edge.
-  B.cols = w < 560 ? 99 : Math.max(120, Math.round(w / 6)); B.rows = ROWS;
-  B.fit = Math.max(1, Math.floor((B.cols - 4 - BW) / PITCH) + 1);
+  // The bulbs come in pages: 8 across on a wide board, 6 on a narrow one (24 bulbs = 3 or 4 whole pages). The grid is
+  // exactly one page wide, so the dots grow with the board and a short night still fills a good part of the row.
+  B.fit = w >= 760 ? 8 : 6;
+  B.cols = B.fit * PITCH + 4; B.rows = ROWS;
   B.x0 = Math.floor((B.cols - ((B.fit - 1) * PITCH + BW)) / 2);
+  canvas.style.aspectRatio = `${B.cols} / ${B.rows}`;   // round dots: the page's style already gives this ratio (no jump)
   B.buf = new Int8Array(B.cols * B.rows); B.lvl = new Uint8Array(B.cols * B.rows);
   B.dark = true;   // the board is a dark LED panel in both themes, like the hamster cam
   B.boardColor = getComputedStyle(document.documentElement).getPropertyValue('--board').trim() || '#08080c';
@@ -108,8 +108,8 @@ export function toggleSound() {
 }
 
 // ---------- animations the board keeps between frames ----------
-const A = { marquee: '', mqX: 0, sparks: [], coins: [], litAt: [], bootT0: null, meBulb: null, meT0: -9 };
-export function resetAnimations() { Object.assign(A, { sparks: [], coins: [], litAt: [], mqX: B.cols, marquee: '', meBulb: null, meT0: -9 }); }
+const A = { marquee: '', mqX: 0, sparks: [], coins: [], litAt: [], bootT0: null, meBulb: null, meT0: -9, page: null, turn: null, off: 0 };
+export function resetAnimations() { Object.assign(A, { sparks: [], coins: [], litAt: [], mqX: B.cols, marquee: '', meBulb: null, meT0: -9, page: null, turn: null, off: 0 }); }
 // Switching a bulb on, in seconds after its spark sets off: the spark runs along the cable, the screw base flashes,
 // the filament glows, the glass fills with light from the filament out (with one flicker), a white flash and a ring
 // of light, and the number pops. Several bulbs at once (catching up) go one after another.
@@ -152,9 +152,35 @@ const BW = 11, BH = 14, MID = { x: 5, y: 8 };                                   
 // rows: the sign 1-7, sky and bonus pot 10-16, bulb numbers 18-22, cable 25, bulbs 26-39, bets 42-45, town to 55
 const PITCH = 14, NUM_Y = 18, CABLE = 25, BULB_Y = 26, MARK_Y = 42, BASE = 54;
 const visibleBulbs = () => B.fit || 1;
-// keep the last two lit bulbs and the next dark ones in view, and never scroll past bulb 24
-const scrollFor = (lit) => Math.max(0, Math.min(24 - visibleBulbs(), lit - 2));
-const bulbX = (k, off) => (B.x0 || 0) + (k - 1 - off) * PITCH;     // left edge of bulb k
+const lastPage = () => Math.max(0, Math.ceil(24 / visibleBulbs()) - 1);
+// The page the board shows: the one with the last lit bulb (a full row stays up). While he keeps running, a full row
+// turns to the next page once its last bulb is fully on, so the next bulb can warm up there. During a blackout the
+// row that goes dark stays in view.
+const TURN_WAIT = 1.1, TURN_TIME = .75;
+function pageFor(v, time) {
+  const P = visibleBulbs(), lit = v.lit;
+  let pg = lit === 0 ? 0 : Math.floor((lit - 1) / P);
+  if (lit > 0 && lit % P === 0 && lit < 24 && v.outP == null && !v.resting) {
+    const at = A.litAt[lit];
+    if (at == null || time >= at + TURN_WAIT) pg++;   // litAt = when that bulb is fully on
+  }
+  return Math.min(lastPage(), pg);
+}
+// where the row is now, in bulbs (a page turn slides it: whole dots at a time, like a scrolling LED sign)
+function viewOff(v, time) {
+  const P = visibleBulbs(), pg = pageFor(v, time);
+  if (A.page == null || REDUCED) { A.page = pg; A.turn = null; }
+  else if (pg !== A.page) { A.turn = { from: (A.turn ? A.off : A.page * P), t0: time }; A.page = pg; }
+  let off = A.page * P;
+  if (A.turn) {
+    const p = Math.min(1, (time - A.turn.t0) / TURN_TIME), e = p < .5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
+    off = A.turn.from + (off - A.turn.from) * e;
+    if (p >= 1) A.turn = null;
+  }
+  A.off = off;
+  return off;
+}
+const bulbX = (k, off) => Math.round((B.x0 || 0) + (k - 1 - off) * PITCH);     // left edge of bulb k
 const STARS = Array.from({ length: 44 }, (_, i) => ({ x: (i * 37 + 23) % 331, y: 10 + (i * 5) % 7, ph: i * 1.7, rate: .7 + (i % 5) * .23 }));
 // now and then a shooting star crosses the sky band
 function meteor(time) {
@@ -174,9 +200,9 @@ function sky(time, dim, keepOut = 0) {
 }
 // the cable comes in from the hamster cam on the left and sags between the bulbs; it glows up to the last lit one
 function cable(off, litTo) {
-  const glowTo = litTo > off ? bulbX(litTo, off) + MID.x : -1;
+  const glowTo = litTo > off ? bulbX(litTo, off) + MID.x : -1, first = bulbX(1, off);
   for (let x = 0; x < B.cols; x++) {
-    const rel = ((x - B.x0 - MID.x) % PITCH + PITCH) % PITCH, sag = x >= B.x0 && rel >= 4 && rel <= 10 ? (rel >= 6 && rel <= 8 ? 2 : 1) : 0;
+    const rel = ((x - first - MID.x) % PITCH + PITCH) % PITCH, sag = x >= first && rel >= 4 && rel <= 10 ? (rel >= 6 && rel <= 8 ? 2 : 1) : 0;
     dot(x, CABLE + sag, x <= glowTo ? 'O' : 'g', x <= glowTo ? 2 : 1);
   }
 }
@@ -335,7 +361,8 @@ function marquee(dt, msg) {
 // }
 export function draw(v, time, dt) {
   if (!canvas || !B.buf) return;
-  const lit = v.lit, off = scrollFor(lit), outP = v.outP;
+  const lit = v.lit, outP = v.outP;
+  const off = viewOff(v, time);
   describe(v);
   clear();
   A.time = time;
@@ -352,6 +379,7 @@ export function draw(v, time, dt) {
   const after = [];
   for (let k = 1; k <= 24; k++) {
     const x = bulbX(k, off); if (x < -BW || x >= B.cols) continue;
+    if (!A.turn && (x < 0 || x + BW > B.cols)) continue;   // the next page's first bulb shows only while the row turns
     const sp = A.sparks.find((s) => s.k === k), a = sp ? time - sp.t0 : null;
     let st = 'dark', opts = { flicker: v.flicker };
     if (outP != null) {
@@ -401,13 +429,15 @@ export function describe(v) {
 export function bulbAt(clientX, lit) {
   if (!canvas) return 0;
   const rect = canvas.getBoundingClientRect(), cx = (clientX - rect.left) / rect.width * B.cols;
-  const k = Math.floor((cx - (B.x0 || 0) + (PITCH - BW) / 2) / PITCH) + 1 + scrollFor(lit);
+  const k = Math.floor((cx - (B.x0 || 0) + (PITCH - BW) / 2) / PITCH + (A.off || 0)) + 1;
+  void lit;
   return k >= 1 && k <= 24 ? k : 0;
 }
 // Where bulb k's glass is on the page right now (for tests), or null when it is scrolled out of view.
 export function bulbPoint(k, lit) {
   if (!canvas) return null;
-  const x = bulbX(k, scrollFor(lit));
+  void lit;
+  const x = bulbX(k, A.off || 0);
   if (x < 0 || x + BW > B.cols) return null;
   const rect = canvas.getBoundingClientRect();
   return { x: rect.left + (x + MID.x + .5) / B.cols * rect.width, y: rect.top + (BULB_Y + MID.y + .5) / B.rows * rect.height };
