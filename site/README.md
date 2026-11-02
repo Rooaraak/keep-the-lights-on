@@ -98,7 +98,7 @@ is one higher than it will be a minute later. Near the end of a round the bet al
 
 - SqueekCore: [0x980b4424c007caf7a1f3670b48c8eaef7ebc3d44](https://sepolia.etherscan.io/address/0x980b4424c007caf7a1f3670b48c8eaef7ebc3d44): `state()`, `roundPage(after, through, max ≤ 16)`
 - SQK: [0x5501e1fa81be1c3f49225fa7668da0245d07db60](https://sepolia.etherscan.io/address/0x5501e1fa81be1c3f49225fa7668da0245d07db60)
-- LightsOn: not deployed yet (`src/LightsOn.sol`, `docs/lights-contract.md`)
+- LightsOn: [0x262c88c4eedf3d543d2523f87fa47701ac429844](https://sepolia.etherscan.io/address/0x262c88c4eedf3d543d2523f87fa47701ac429844) from block 12048847, deployed through IMD (launch 2876) (`src/LightsOn.sol`, `docs/lights-contract.md`)
 
 The wheel speed (`speedMmPerSecond` on a fresh reading from the status API) only animates the wheel and says
 whether he's running this minute; it never decides a bulb. `coreStatus` is never used.

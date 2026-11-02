@@ -12,5 +12,6 @@
   "sqk": "0xfC812E27a816e083b3313b6DECDF15dEa9d8896e",
   "lightsOn": "0xFe3D58bb18F89DCe0F13a0E83Ca7A9a7E458F49F",
   "deployBlock": 12040972,
-  "practice": true
+  "practice": true,
+  "realUrl": "./"
 }

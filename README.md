@@ -1,15 +1,16 @@
 # Keep the Lights On
 
 A game for [Squeekchain](https://squeekchain.com). Squeektoshi's wheel powers a string of numbered bulbs: every 10
-minutes he keeps running, the next bulb lights up. Bet test SQK on a bulb. When he falls asleep, the lights go out and
+minutes he keeps running, the next bulb lights up. Bet SQK on a bulb. When he falls asleep, the lights go out and
 the lit bulbs share the pot.
 
 Everything is settled on Sepolia straight from SqueekCore's records of his wheel. There is no server, no admin and no
 off-chain oracle: the contract reads the rounds itself, and anyone can settle a night or collect for anyone.
 
-- **Play the rehearsal:** <https://rooaraak.github.io/keep-the-lights-on/?config=rehearsal.json>. It's a test copy of
-  the game on Sepolia that follows his real rounds, using a free practice token. The page has a button that gives you
-  1,000 practice SQK.
+- **Play:** <https://rooaraak.github.io/keep-the-lights-on/>. The real game, with Squeekchain's SQK on Sepolia.
+- **No SQK? Practice:** tap **Practice (free)** on the page, or open
+  <https://rooaraak.github.io/keep-the-lights-on/?config=rehearsal.json>. The same game following his real rounds, with a
+  free practice token: the page has a button that gives you 1,000 practice SQK.
 - **Watch a past night:** <https://rooaraak.github.io/keep-the-lights-on/#past>. This is a replay of one of his real
   nights, with nine made-up players.
 
@@ -76,7 +77,7 @@ node site/test/e2e.test.mjs
 | SQK | `0x5501e1fa81be1c3f49225fa7668da0245d07db60` |
 | Rehearsal game | `0xFe3D58bb18F89DCe0F13a0E83Ca7A9a7E458F49F` |
 | Rehearsal practice token | `0xfC812E27a816e083b3313b6DECDF15dEa9d8896e` |
-| The real game | not deployed yet |
+| **The game** | `0x262c88c4eedf3d543d2523f87fa47701ac429844` (from block 12048847; deployed through IMD, launch 2876) |
 
 ## Safety
 

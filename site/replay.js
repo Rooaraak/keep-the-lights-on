@@ -317,7 +317,7 @@ export function createReplay({ $, setText, setStatus }) {
     setRides,
     odds: () => DATA.odds,
     enter() {
-      S.active = true; $('meter').hidden = true;
+      S.active = true; $('meter').hidden = true; $('status').setAttribute('aria-live', 'off');   // a replay's lines come every round: not read out
       $('replayControls').hidden = false; $('amtOther').hidden = true; $('soon').hidden = true; $('act').hidden = false; $('amountRow').hidden = false; $('amtLabel').hidden = false;
       $('walletLine').hidden = true; $('minePanel').hidden = true; $('playersPanel').hidden = false;
       setText('playersTitle', 'Pretend players');

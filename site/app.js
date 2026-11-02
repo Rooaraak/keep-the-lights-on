@@ -25,6 +25,18 @@ function configPath() {
   return q && /^[\w.-]+\.json$/.test(q) ? q : 'config.json';
 }
 
+// The switch between the real game and the practice copy (same page, another settings file). Shown only when the
+// settings name the other side: practiceUrl on the real game, realUrl on the practice copy. A replay stays a replay.
+function coinSwitch(config) {
+  const ok = (u) => typeof u === 'string' && /^(\.\/|\?|https:\/\/)/.test(u);
+  const real = config.practice ? config.realUrl : './', practice = config.practice ? `./?config=${configPath()}` : config.practiceUrl;
+  if (!ok(real) || !ok(practice)) return;
+  const keep = (u) => u + (location.hash === '#past' ? '#past' : '');
+  $('coinReal').href = keep(real); $('coinPractice').href = keep(practice);
+  $(config.practice ? 'coinPractice' : 'coinReal').setAttribute('aria-current', 'page');
+  $('coinSwitch').hidden = false;
+}
+
 function banner(text) {
   const el = $('banner');
   el.hidden = !text;
@@ -64,6 +76,7 @@ async function boot() {
     return;
   }
   links(config);
+  coinSwitch(config);
 
   const replay = createReplay({ $, setText, setStatus });
   const G0 = Number(config.genesis) || rides.genesis;
