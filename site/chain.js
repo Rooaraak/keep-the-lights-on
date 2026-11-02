@@ -29,18 +29,27 @@ export const SEL = {
   lastBet: '0x2c4ef7b5', // lastBet(address)
   nextSettle: '0xfac53f8c', // nextSettle()
   voided: '0xb15856e4', // voided()
+  void: '0xac4c25b2', // void(): ends the game (7 days asleep, or 24 h after a stall flag)
+  flagStall: '0xfb6a073d', // flagStall()
+  asleepTooLong: '0x95217c87', // asleepTooLong()
+  stalled: '0x526e3e64', // stalled(): needs 2.1M gas for its read of the core (NeedMoreGas below that)
+  stallFlaggedAt: '0xc3044466', // stallFlaggedAt()
   G: '0x6fecb623', // G()
   STATION: '0x711148f8', // STATION()
   MIN_BET: '0x6540742f', // MIN_BET()
   MAX_BET: '0x7e95b523', // MAX_BET()
   CORE: '0x6b6c0774', // CORE()
   SQK: '0xf5c83edd', // SQK()
+  START_ROUND: '0x7bd34c3f', // START_ROUND(): the game counts his rounds (and a week asleep) from here
 };
 
 export const TOPIC = {
   BetPlaced: '0xbfcd8f4e47cc529f86cdc7eab8fb80e015a298e021fcaee72df1f76dd57cf487', // BetPlaced(uint256,address,uint8,uint256,uint256)
   Claimed: '0x4ec90e965519d92681267467f775ada5bd214aa92c0dc93d90a5e880ce9ed026', // Claimed(uint256,address,uint256)
   Refunded: '0x7ca5472b7ea78c2c0141c5a12ee6d170cf4ce8ed06be3d22c8252ddfc7a6a2c4', // Refunded(uint256,address,uint256), after a void
+  Voided: '0x8532e58d991813980022f4053d2c415195cde8ae51cfca6a78dadcf03d61c465', // Voided(): the game ended
+  StallCleared: '0xfc5c94bbf3e714e8153baf984ef4006fd8cfaf4943756dfac63ab0833b1d38d9', // StallCleared(): void() found the core fine again
+  StallFlagged: '0x28d82cf57f1b89f5598fc3849001c3239da0a60c9b131b310d49c51d1bf6fbaf', // StallFlagged(uint256)
   NightClosed: '0x9ad236d84499a9df7eb833f4ae7b55073fc370f5aae372e5d603f1eb096eb547',
   NightSettled: '0x5620ea0fd075bc62f527c3b811bc61a21a5ec9b250c5ff369e9a5fb464023bbb',
   RoundRecorded: '0x6f7efb5b00900843c192802a77e52da9f18fee1daa04089fc4bf159963c7968c', // roundId is indexed
@@ -75,6 +84,10 @@ export const ERRORS = {
 export const STATUS = { WAITING: 0, COUNTED: 1, CLAIMED: 2, REFUNDED: 3 };
 export const CLS = { REFUND: 0, WIN: 1, LOSE: 2 };
 export const RESULT = { SETTLING: 0, PAID: 1, ROLLED: 3 };
+// When the game may be ended (LightsOn.sol): SLEEP_ROUNDS without a running round, or a core that hasn't settled for
+// STALL_ROUNDS (flagStall), still stuck VOID_DELAY seconds after the flag (void).
+export const SLEEP_ROUNDS = 1008, STALL_ROUNDS = 144, VOID_DELAY = 86_400;
+const STALL_READ_GAS = 3_000_000; // stalled() reverts NeedMoreGas under 2.1M
 
 export const SEPOLIA_ID = 11155111;
 const DEFAULT_STATUS_API = 'https://api.squeekchain.com/v1/status';
@@ -106,6 +119,8 @@ export const encode = {
   },
   claim: (ids) => SEL.claim + hex64(32) + hex64(ids.length) + ids.map(hex64).join(''),
   poke: (pages) => SEL.poke + hex64(pages),
+  voidGame: () => SEL.void,
+  flagStall: () => SEL.flagStall,
   settle: (work) => SEL.settle + hex64(work),
   roundPage: (after, through, max) => SEL.roundPage + hex64(after) + hex64(through) + hex64(max),
   getBet: (id) => SEL.getBet + hex64(id),
@@ -365,13 +380,20 @@ export function createChain(config, { fetchFn = globalThis.fetch?.bind(globalThi
     address: lightsOn,
     // Values fixed at deployment.
     async constants() {
-      const [g, station, min, max, coreAddr, sqkAddr] = await calls([[lightsOn, SEL.G], [lightsOn, SEL.STATION], [lightsOn, SEL.MIN_BET], [lightsOn, SEL.MAX_BET], [lightsOn, SEL.CORE], [lightsOn, SEL.SQK]]);
-      return { genesis: num(decode.uint(g)), station: num(decode.uint(station)), minBet: decode.uint(min), maxBet: decode.uint(max), core: decode.address(coreAddr), sqk: decode.address(sqkAddr) };
+      const [g, station, min, max, coreAddr, sqkAddr, start] = await calls([[lightsOn, SEL.G], [lightsOn, SEL.STATION], [lightsOn, SEL.MIN_BET], [lightsOn, SEL.MAX_BET], [lightsOn, SEL.CORE], [lightsOn, SEL.SQK], [lightsOn, SEL.START_ROUND]]);
+      return { genesis: num(decode.uint(g)), station: num(decode.uint(station)), minBet: decode.uint(min), maxBet: decode.uint(max), core: decode.address(coreAddr), sqk: decode.address(sqkAddr), startRound: num(decode.uint(start)) };
     },
     // Everything that changes, in one round trip.
     async snapshot() {
       const [pot, next, bets, nights, voided, walker, open] = await calls([[lightsOn, SEL.bonusPot], [lightsOn, SEL.nextSettle], [lightsOn, SEL.betCount], [lightsOn, SEL.nightCount], [lightsOn, SEL.voided], [lightsOn, SEL.getWalker], [lightsOn, SEL.openNight]]);
       return { bonusPot: decode.uint(pot), nextSettle: num(decode.uint(next)), betCount: num(decode.uint(bets)), nightCount: num(decode.uint(nights)), voided: decode.bool(voided), walker: decode.walker(walker), openNight: decode.openNight(open) };
+    },
+    // What ending the game needs right now: { asleepTooLong, stalled, flaggedAt } (flaggedAt: unix seconds, 0 = no
+    // flag). The page only asks when it sees a reason (a core a day behind, or a week without a running round).
+    async endState() {
+      const [asleep, flagged] = await calls([[lightsOn, SEL.asleepTooLong], [lightsOn, SEL.stallFlaggedAt]]);
+      const stalled = decode.bool(await call(lightsOn, SEL.stalled, null, STALL_READ_GAS));
+      return { asleepTooLong: decode.bool(asleep), stalled, flaggedAt: num(decode.uint(flagged)) };
     },
     async night(id) { return decode.night(await call(lightsOn, encode.getNight(id))); },
     async bets(from, to) {
@@ -740,6 +762,61 @@ export async function collect({ chain, wallet, account, ids, onStep = () => {}, 
   return { hash, collected, paid, helpers: helperHashes };
 }
 
+// Ends the game, or flags a stalled core first (anyone may: no owner, no admin).
+//   action 'flag': flagStall(), allowed while the core hasn't settled a round for STALL_ROUNDS. Returns { flagged }.
+//   action 'end': void(), allowed when he hasn't run for SLEEP_ROUNDS, or VOID_DELAY after a flag if the core is still
+//     stuck the same way. void() needs every round the core can serve read (poke) and every closed night counted
+//     (settle) first: those helpers go out first, at most `helpers`. void() can also go through WITHOUT ending the
+//     game: if the core settled again since the flag, it clears the flag. So the result is read back from the
+//     contract: { ended: true } or { cleared: true }.
+// onStep: 'check', 'catchup' / 'catching' (poke), 'count' / 'counting' (settle), 'end' / 'ending', 'flag' /
+// 'flagging', 'done'.
+export async function endGame({ chain, wallet, account, action = 'end', onStep = () => {}, waitOpts, helpers = 12 } = {}) {
+  const game = chain.lights.address;
+  if (!game) throw new Error('no game contract');
+  const sendAndWait = async (data, gas, [ask, wait]) => {
+    onStep(ask);
+    const h = await wallet.send(account, game, data, { gas });
+    onStep(wait, { hash: h });
+    const r = await wallet.waitReceipt(h, waitOpts);
+    if (r.timeout) throw Object.assign(new Error('still waiting'), { code: 'TIMEOUT', hash: h });
+    if (!r.ok) {
+      const why = await whyFailed(wallet, account, game, data);
+      throw why || Object.assign(new Error('failed'), { code: 'FAILED', hash: h });
+    }
+    return { hash: h, receipt: r.receipt };
+  };
+  const emitted = (receipt, topic) => (receipt?.logs || []).some((l) => l.topics && l.topics[0] === topic && l.address && l.address.toLowerCase() === game.toLowerCase());
+  onStep('check');
+  if (action === 'flag') {
+    const data = encode.flagStall();
+    await wallet.preflight(account, game, data); // NotStalled / IsVoided in plain words before the wallet asks
+    const { hash } = await sendAndWait(data, await sendGas(chain, account, game, data, STALL_READ_GAS + 200_000), ['flag', 'flagging']);
+    onStep('done', { hash });
+    return { hash, flagged: true };
+  }
+  const data = encode.voidGame();
+  const helperHashes = [];
+  for (let i = 0; ; i++) {
+    // read every round the core can serve, then count every closed night: void() refuses until both are done
+    const [snap, core] = [await chain.lights.snapshot(), await chain.core.state().catch(() => null)];
+    if (snap.voided) throw Object.assign(new Error('already ended'), { revert: { name: 'IsVoided', args: [] } });
+    const behind = core && snap.walker.cursor < core.settledThrough;
+    const uncounted = snap.nextSettle < snap.nightCount;
+    if (!behind && !uncounted) break;
+    if (i >= helpers) throw Object.assign(new Error('still catching up'), { code: 'NOT_READY' });
+    const help = behind ? encode.poke(8) : encode.settle(400);
+    helperHashes.push((await sendAndWait(help, await helperGas(chain, account, game, help), behind ? ['catchup', 'catching'] : ['count', 'counting'])).hash);
+  }
+  await wallet.preflight(account, game, data); // TooEarly / SettleFirst / IsVoided in plain words before the wallet asks
+  const { hash, receipt } = await sendAndWait(data, await sendGas(chain, account, game, data, STALL_READ_GAS + 500_000), ['end', 'ending']);
+  // from the transaction's own events, not a read: the page's node may not have seen the block yet
+  const ended = emitted(receipt, TOPIC.Voided);
+  if (!ended && !emitted(receipt, TOPIC.StallCleared)) throw Object.assign(new Error('no result'), { code: 'FAILED', hash });
+  onStep('done', { hash, ended });
+  return ended ? { hash, ended: true, helpers: helperHashes } : { hash, cleared: true, helpers: helperHashes };
+}
+
 // ---------------------------------------------------------------- plain words for failures
 
 const sqkText = (wei) => {
@@ -772,6 +849,10 @@ export function explain(err) {
       case 'BadAmount': return { kind: 'amount', text: 'A bet must be between 10 and 10,000 SQK.' };
       case 'BadBulb': return { kind: 'bulb', text: 'Pick a bulb from 1 to 24.' };
       case 'IsVoided': return { kind: 'ended', text: 'This game has ended. You can still collect your refunds.' };
+      case 'TooEarly': return { kind: 'early', text: 'The game can\'t be ended yet: that needs a week without him running, or a day after a stall was flagged.' };
+      case 'NotStalled': return { kind: 'notStalled', text: 'Squeekchain is recording rounds again, so there is no stall to flag.' };
+      case 'SettleFirst': return { kind: 'catchup', text: 'The game still has rides to count before it can end. Press the button again: it counts them first.' };
+      case 'NeedMoreGas': return { kind: 'gas', text: 'Your wallet sent this with too little gas for the game\'s check of Squeekchain. Press the button again.' };
       case 'BeforeGenesis': return { kind: 'early', text: 'Squeekchain hasn\'t started its rounds yet.' };
       case 'ERC20InsufficientBalance': return { kind: 'balance', text: `Not enough SQK: you have ${sqkText(rev.args[1])}, this bet needs ${sqkText(rev.args[2])}.` };
       case 'ERC20InsufficientAllowance': return { kind: 'allowance', text: 'The game wasn\'t allowed to take this bet from your SQK yet. Press the button again to allow it.' };

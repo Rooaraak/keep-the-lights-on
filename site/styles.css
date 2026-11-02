@@ -151,6 +151,9 @@ details p { margin: 0 0 12px; color: var(--dim); max-width: 70ch; }
 .rider .who small { display: block; color: var(--dim); font-size: 12px; }
 .rider .amt { font-family: var(--num); font-size: 22px; font-weight: 500; font-variant-numeric: tabular-nums; text-align: right; }
 .empty { margin: 0; color: var(--dim); }
+/* ending the game: only shown after a week without him running, or when Squeekchain has stopped recording rounds */
+.end-box { display: grid; gap: 10px; justify-items: start; border-top: 1px solid var(--line); padding-top: 14px; }
+.end-box p { margin: 0; }
 /* tonight's pot under the bets panel title: the whole pot, how many bets, the bonus part */
 .pot-line { margin: 0; font-family: var(--num); font-size: 20px; letter-spacing: .03em; color: var(--gold); font-variant-numeric: tabular-nums; }
 .odds { display: grid; grid-template-columns: repeat(21, minmax(0, 1fr)); align-items: end; gap: 3px; height: 100px; margin-top: 4px; }

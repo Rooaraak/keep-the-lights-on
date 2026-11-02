@@ -17,7 +17,9 @@
 //     S4 desktop 1280x900 dark: the page's nights == data/rides.json, odds, past nights, the dashboard at 800 and
 //                              1000 px; the last two rounds of a 36-round night; collect after a long quiet spell (a
 //                              helper first); a returning player after a long busy spell (the game must catch up first)
-//     S5 phone 390x844 dark:   he sleeps 7 days, the game is ended (void): refunds shown and collected
+//     S5 phone 390x844 dark:   he sleeps 7 days, the player ends the game from the page (void): refunds shown and collected
+//   chain 3 (the real history, one bet, then a core that stops settling)
+//     S6 phone 390x844 dark:   Squeekchain stalls a day: flag it from the page, end the game a day later, the bet comes back
 // Every Chrome launch is killed at 85 s. Checks: plain words, no console errors, no sideways scroll.
 // Every payout is checked three ways: an independent copy of the rule (e2e/reference.mjs, itself checked against
 // data/lights-vectors.json), what the contract says it owes (betOutcome), and the SQK that actually arrives.
@@ -604,10 +606,22 @@ async function S5(ctx) {
   // 1,008 rounds (7 days) with no running round after ride I (last active 1078): anyone may end the game
   await c.at(2100, 30);
   await c.record(2099);
-  await c.send(c.deployer, c.lights, C.encode.poke(50));
-  await c.send(c.deployer, c.lights, C.encode.settle(500));
-  await c.send(c.deployer, c.lights, '0xac4c25b2', { gas: 3_000_000 }); // void() (cast sig)
-  check(C.decode.bool(await c.call(c.lights, C.SEL.voided)), 'S5: after a week without running the game was ended (void)');
+  // the page offers to end the game, and the player (p3) ends it there: the game reads the rounds and counts the
+  // nights first (wallet steps), then ends
+  {
+    const { s, P, page } = await openPage(ctx, { label: 'S5 desktop 1280x900 light: ending the game', viewport: { width: 1280, height: 900 }, scheme: 'light' });
+    try {
+      check(await P.waitText('#endText', /hasn't run for 7 days\. Anyone can end the game now/, 20_000), 'S5: after a week asleep the page offers to end the game', await P.text('#endText'));
+      check(await P.visible('#endBtn') && /^End the game$/.test(await P.text('#endBtn')), 'S5: its button says "End the game"', await P.text('#endBtn'));
+      await page.screenshot({ path: join(SHOTS, 's5-end-offer.png'), fullPage: true });
+      await P.click('#endBtn');
+      check(await P.waitText('#status', /^This game has ended\. Collect your refunds\./, 60_000), 'S5: after the wallet steps: "This game has ended. Collect your refunds."', await P.text('#status'));
+      check(await P.waitText('#act', /^Collect /, 20_000) && !(await P.visible('#endBox')), 'S5: the end box is gone and the button offers the refund', await P.text('#act'));
+    } catch (e) {
+      check(false, `S5 (ending) crashed: ${e.stack || e}`);
+    } finally { await s.close(); }
+  }
+  check(C.decode.bool(await c.call(c.lights, C.SEL.voided)), 'S5: after a week without running the game was ended (void), from the page');
   const ref = await reference(c);
   // after the game ends: bets not in a closed night come back, and so do stakes riding in a bonus pot nobody won
   const lastPaid = ref.nights.map((n) => n.result).lastIndexOf('paid');
@@ -645,6 +659,55 @@ async function S5(ctx) {
   } finally { await s.close(); }
 }
 
+// ---------------------------------------------------------------- S6: Squeekchain stalls: flag it, end the game a day later
+async function S6(ctx) {
+  const { c, p3 } = ctx;
+  const bet = await c.betDirect(p3, 4, 100n * W); // for his next ride: it comes back when the game ends
+  // the core settles nothing after round 780 for more than a day (144 rounds)
+  await c.at(780 + 147, 30);
+  const { s, P, page } = await openPage(ctx, { label: 'S6 phone 390x844 dark: Squeekchain stalls', viewport: { width: 390, height: 844 }, scheme: 'dark' });
+  try {
+    check(await P.waitText('#endText', /^Squeekchain hasn't recorded a round for over a day\. Anyone can flag that\./, 20_000), 'S6: a core silent for a day: the page offers to flag it', await P.text('#endText'));
+    check(/^Connect your wallet$/.test(await P.text('#endBtn')), 'S6: no wallet shared yet: the button says "Connect your wallet"', await P.text('#endBtn'));
+    await P.click('#endBtn');
+    check(await P.waitText('#endBtn', /^Flag the stall$/, 20_000), 'S6: connected: the button says "Flag the stall"', await P.text('#endBtn'));
+    await P.click('#endBtn');
+    check(await P.waitText('#status', /^Flagged\. If Squeekchain is still stuck a day from now, anyone can end the game\./, 30_000), 'S6: "Flagged. If Squeekchain is still stuck a day from now, anyone can end the game."', await P.text('#status'));
+    await P.refresh();
+    check(await P.waitText('#endText', /^Flagged: Squeekchain stopped recording rounds\. If it is still stuck on .+ your time, anyone can end the game/, 20_000) && !(await P.visible('#endBtn')),
+      'S6: flagged: the page says when the game can be ended, with no button until then', await P.text('#endText'));
+    await page.screenshot({ path: join(SHOTS, 's6-flagged.png'), fullPage: true });
+    // a day later, still stuck
+    await c.at(780 + 147 + 145, 30);
+    await P.refresh();
+    check(await P.waitText('#endText', /^Squeekchain has been stuck for a day since the flag\. Anyone can end the game now/, 20_000) && /^End the game$/.test(await P.text('#endBtn')),
+      'S6: a day after the flag: "End the game"', await P.text('#endText'));
+    await P.click('#endBtn');
+    check(await P.waitText('#status', /^This game has ended\. Collect your refunds\./, 60_000), 'S6: "This game has ended. Collect your refunds." (not hidden behind "records late")', await P.text('#status'));
+    check(C.decode.bool(await c.call(c.lights, C.SEL.voided)), 'S6: ended on chain');
+    check(await P.waitText('#act', /^Collect 100 SQK$/, 20_000), 'S6: the open bet (100 SQK on bulb 4) can be collected back', await P.text('#act'));
+    check(bet && bet.bulb === 4, 'S6: (the bet was placed before the stall)');
+    await pageHygiene(P, s, 'S6', 390);
+  } catch (e) {
+    check(false, `S6 crashed: ${e.stack || e}`);
+  } finally { await s.close(); }
+}
+
+// a third chain: the real history through 780, one bet waiting, then Squeekchain stops settling
+async function chain3() {
+  const anvil = await H.startAnvil();
+  const c = await H.createTestChain(anvil, { round: 781, secs: 15, startRound: 780 });
+  const [, me, p3] = c.accounts;
+  for (const a of [me, p3]) await c.mint(a, 1000n * W);
+  await c.record(780, REAL);
+  const state = { wheel: 0, config: null };
+  const web = await H.startWeb(state);
+  state.config = { ...c.chainCfg, chainName: 'Test chain', explorer: '', walkFrom: 0, clock: 'chain', statusApi: `${web.origin}/__status`, wheelHoldMs: 0 };
+  const wallet = H.createFakeWallet(anvil, { account: p3, chainId: '0x7a69' });
+  wallet.known.add('0x7a69');
+  return { anvil, c, state, web, wallet, me, p3 };
+}
+
 // ================================================================= run
 
 const fresh = H.checkBuildFresh();
@@ -673,6 +736,15 @@ try {
         await ({ S4, S5 })[name](ctx);
         console.log(`     ${name} took ${((Date.now() - t0) / 1000).toFixed(1)} s`);
       }
+    } finally { await ctx.web.stop(); ctx.anvil.stop(); }
+  }
+  if (!ONLY || ONLY.has('S6')) {
+    const ctx = await chain3();
+    try {
+      const t0 = Date.now();
+      console.log('\n--- S6');
+      await S6(ctx);
+      console.log(`     S6 took ${((Date.now() - t0) / 1000).toFixed(1)} s`);
     } finally { await ctx.web.stop(); ctx.anvil.stop(); }
   }
 } catch (e) {

@@ -14,6 +14,23 @@ off-chain oracle: the contract reads the rounds itself, and anyone can settle a 
 - **Watch a past night:** <https://keepthelightson.xyz/#past>. This is a replay of one of his real
   nights, with nine made-up players.
 
+## For reviewers
+
+- **Two-minute tour.** Open the page and tap **Practice (free)**, then **Get 1,000 practice SQK**, pick a bulb and bet.
+  Your bet shows on the LED board and in tonight's bets, with the pot. Tap **Watch a past night** to see a whole ride,
+  from the first bulb to the blackout, in about a minute.
+- **The deployed contract is this code.** The game at `0x262c88c4…9844` was built and deployed through IMD (launch
+  2876). Its runtime bytecode equals a compile of `src/LightsOn.sol` from this repository, apart from the immutables
+  (core, token, genesis time, station, start round). You can check that with `forge build` and `cast code`.
+- **Review findings are kept as tests.** IMD's launch review raised two findings. The medium one (a stall of the
+  unreadable kind could be measured from too early a round) was fixed before deployment with `readThrough`, and
+  `test/audit_review/` proves the fix. The low one (a 7-day void can fall in a round he departs in) is kept by design:
+  that ride is refunded like every bet not in a closed night. `test/audit_attacks`, `audit_money` and `audit_time` hold
+  the earlier audit passes as regression tests.
+- **Tests.** 149 Foundry tests: unit, fuzz, invariants, gas, and replays of his real nights. The page has static,
+  engine, chain and local-chain tests, plus Chrome end-to-end runs that place, settle, collect and end real games on a
+  local chain. See "Run it" below.
+
 ## How it works
 
 1. **Bet on a bulb.** Pick a bulb from 1 to 24 and a bet from 10 to 10,000 SQK, before he starts or while he runs. Bulb 6
@@ -82,8 +99,8 @@ node site/test/e2e.test.mjs
 ## Safety
 
 The contract has no owner, no admin, no pause, no proxy and no setters. If SqueekCore stops recording for a day and
-stays stuck, or he hasn't run at all for 7 days, anyone can end the game. Rides that already ended still pay as they
-ended. Every other bet is refunded, including bets in an unwon bonus pot, so no bet can get stuck. Winnings never
+stays stuck, or he hasn't run at all for 7 days, anyone can end the game. The page shows an **End the game** button
+(or **Flag the stall** first) only when that is allowed. Rides that already ended still pay as they ended. Every other bet is refunded, including bets in an unwon bonus pot, so no bet can get stuck. Winnings never
 expire.
 
 This is a test-network game. Test SQK has no money value, and 2% of what winners take from others is burned. Nothing

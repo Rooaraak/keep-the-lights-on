@@ -247,6 +247,70 @@ try {
     const got2 = await C.collect({ chain, wallet, account: me, ids: [second.betId], waitOpts: fast, onStep: (x) => st.push(x) });
     ok(got2.helpers.length === 1 && got2.collected === want.payout, `collect: ${got2.helpers.length} helper, then ${Number(got2.collected) / 1e18} SQK, the page's number (${st.join(' > ')})`);
   }
+
+  // ---------- ending the game: a stalled core (flag, then end a day later), a core that recovers, a week asleep ----------
+  // each on its own core and game (start round after today's rounds), so the stalls don't touch the game above
+  const newGame = async (start) => {
+    const c = await deploy(bytecode('Mocks.sol', 'MockCore'));
+    const l = await deploy(bytecode('LightsOn.sol', 'LightsOn') + addrWord(c) + addrWord(sqk) + word(G) + word(STATION) + word(start));
+    const cfg = { ...config, squeekCore: c, lightsOn: l };
+    const ch = C.createChain(cfg);
+    return { c, l, chain: ch, wallet: C.createWallet(provider, cfg, ch), settled: (r) => send(deployer, c, sig.setSettled + word(r)) };
+  };
+  const endSteps = [];
+  const end = (g, action) => { endSteps.length = 0; return C.endGame({ chain: g.chain, wallet: g.wallet, account: me, action, waitOpts: fast, onStep: (x) => endSteps.push(x) }); };
+  const k2 = await (await newGame(1)).chain.lights.constants();
+  ok(k2.startRound === 1, 'constants: START_ROUND reads back');
+  {
+    // the core settles round 170, then nothing for 145 rounds: stalled
+    const g = await newGame(170);
+    await at(171); await g.settled(170);
+    let st = await g.chain.lights.endState();
+    ok(!st.stalled && !st.asleepTooLong && st.flaggedAt === 0, 'end state of a fresh game: not stalled, not asleep, no flag', JSON.stringify(st));
+    await mine(316);
+    st = await g.chain.lights.endState();
+    ok(st.stalled && !st.asleepTooLong && st.flaggedAt === 0, 'a core silent for over 144 rounds reads as stalled (stalled() read with enough gas)', JSON.stringify(st));
+    let e = null;
+    try { await end(g, 'end'); } catch (x) { e = x; }
+    ok(e && C.explain(e).kind === 'early', 'ending before a flag is refused in plain words, before the wallet asks', e && C.explain(e).text);
+    await at(316, 60);
+    const f = await end(g, 'flag');
+    st = await g.chain.lights.endState();
+    ok(f.flagged && st.flaggedAt > 0 && endSteps.join(' > ') === 'check > flag > flagging > done', `flag: the stall is flagged (${endSteps.join(' > ')})`);
+    e = null;
+    await mine(400);
+    try { await end(g, 'end'); } catch (x) { e = x; }
+    ok(e && C.explain(e).kind === 'early', 'a day has not passed since the flag: ending is refused ("can\'t be ended yet")', e && C.explain(e).text);
+    await mine(316 + 145, 90);
+    const r = await end(g, 'end');
+    ok(r.ended && !r.cleared && C.decode.bool(await g.chain.call(g.l, C.SEL.voided)), `a day after the flag, still stuck: the game ends, read from the receipt (${endSteps.join(' > ')})`);
+    e = null;
+    try { await end(g, 'flag'); } catch (x) { e = x; }
+    ok(e && C.explain(e).kind === 'ended', 'after it ended, flagging says the game has ended', e && C.explain(e).text);
+  }
+  {
+    // flagged, then the core settles again: void() only clears the flag (the transaction goes through, the game goes on)
+    const g = await newGame(470);
+    await at(471); await g.settled(470);
+    await mine(470 + 146);
+    await end(g, 'flag');
+    await at(617); await g.settled(616);
+    await mine(616 + 145, 90);
+    const r = await end(g, 'end');
+    const st = await g.chain.lights.endState();
+    ok(r.cleared && !r.ended && !C.decode.bool(await g.chain.call(g.l, C.SEL.voided)) && st.flaggedAt === 0 && !st.stalled,
+      `the core recovered after the flag: "end" only clears the flag, read from the receipt (${endSteps.join(' > ')})`, JSON.stringify(st));
+  }
+  {
+    // a week (1,008 rounds) without a running round, the core settling all along: the game reads the rounds, then ends
+    const g = await newGame(770);
+    await at(1781); await g.settled(1780);
+    let st = await g.chain.lights.endState();
+    ok(!st.asleepTooLong, 'a week asleep, but the game has not read those rounds yet: asleepTooLong() still says no');
+    const r = await end(g, 'end');
+    ok(r.ended && r.helpers.length >= 1 && endSteps.includes('catchup') && endSteps.at(-1) === 'done', `a week asleep: the flow reads the rounds first (${r.helpers.length} helper), then ends the game (${endSteps.join(' > ')})`);
+    ok(C.decode.bool(await g.chain.call(g.l, C.SEL.voided)), 'the game is ended on chain');
+  }
 } catch (e) {
   failures++;
   console.log(`FAIL ${e.stack || e}`);
