@@ -13,6 +13,10 @@
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:url" content="https://rooaraak.github.io/keep-the-lights-on/">
+<meta property="og:site_name" content="Keep the Lights On">
+<meta property="og:image:alt" content="The LED board: Squeektoshi running in his wheel, a row of lit bulbs and the bet panel">
+<meta name="theme-color" content="#0e0e12">
+<link rel="canonical" href="https://rooaraak.github.io/keep-the-lights-on/">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:image" content="https://rooaraak.github.io/keep-the-lights-on/og.png">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
@@ -28,7 +32,7 @@
     <div class="hero-top">
       <div class="seg" role="group" aria-label="What the page shows">
         <button type="button" id="modeLive" aria-pressed="true">Live</button>
-        <button type="button" id="modeReplay" aria-pressed="false"><span class="wide">Watch a past night</span><span class="narrow" aria-hidden="true">Past night</span></button>
+        <button type="button" id="modeReplay" aria-pressed="false" aria-label="Watch a past night"><span class="wide">Watch a past night</span><span class="narrow" aria-hidden="true">Past night</span></button>
       </div>
       <button type="button" class="ghost sound" id="sound" aria-pressed="false" aria-label="Sound off"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path class="on" d="M16 9.5a3.5 3.5 0 0 1 0 5M18.5 7a7 7 0 0 1 0 10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path class="off" d="M16.5 9.5l5 5M21.5 9.5l-5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span class="sound-label">Sound off</span></button>
     </div>
@@ -43,7 +47,13 @@
   <main class="main">
 
   <section class="panel" aria-label="The game">
-    <p class="eyebrow"><span class="dot" id="liveDot" aria-hidden="true"></span><span id="eyebrow">Squeekchain · test network</span></p>
+    <div class="panel-head">
+      <p class="eyebrow"><span class="dot" id="liveDot" aria-hidden="true"></span><span id="eyebrow">Squeekchain · test network</span></p>
+      <nav class="seg coin" id="coinSwitch" aria-label="Real SQK or free practice SQK" hidden>
+        <a id="coinReal" href="./">SQK</a>
+        <a id="coinPractice" href="./?config=rehearsal.json">Practice <span class="free">(free)</span></a>
+      </nav>
+    </div>
 
     <div class="controls" id="replayControls" role="group" aria-label="Replay settings" hidden>
       <select id="ride" aria-label="Which night to replay"></select>
@@ -112,7 +122,7 @@
     <div class="riders" id="mine"></div>
   </section>
 
-  <section class="panel">
+  <section class="panel how">
     <h2>How it works</h2>
     <ol class="steps">
       <li><b>Bet on a bulb</b><span>Pick a bulb number and a bet, before he starts or while he runs.</span></li>
@@ -125,7 +135,7 @@
       <details><summary>Can I bet after the lights are on?</summary>
         <p>Yes, but on a bulb at least two ahead of the last one that lit, or of the one he is lighting right now if he is running. Everyone can watch him live, so betting on the very next bulb would be too easy. A bet whose bulb lights in the round it was sent or the next one doesn't count, and you get it back. The page only offers bulbs far enough ahead. A bet placed in the 20 quiet minutes before a blackout is for the next ride.</p></details>
       <details><summary>Which ride does my bet count for?</summary>
-        <p>The ride he is on when you bet. If he is asleep, it counts for his next ride, whenever he starts it. If he stops right after your bet and stays asleep for 20 minutes, the lights go out and your bet moves to his next ride instead. One bet per ride, and a bet can't be changed or taken back.</p></details>
+        <p>The ride he is on when you bet. If he is asleep, it counts for his next ride, whenever he starts it. A bet sent while he is taking a break counts for this ride if he gets back on the wheel, and for his next ride if he stays asleep and the lights go out. But a bet sent in a round he ran in stays on this ride, even if he stops right after it. The sentence under the Bet button always says which ride your bet is for. One bet per ride, and a bet can't be changed or taken back.</p></details>
       <details><summary>Why do early bets get more?</summary>
         <p>A bet placed before he starts takes the most risk, so it gets the biggest slice. A late bet only counts the bulbs that were still dark when it was placed.</p></details>
       <details><summary>What if no bulb wins?</summary>

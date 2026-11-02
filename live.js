@@ -1070,7 +1070,7 @@ export function createLive({ $, setText, setStatus, config, base, onRides, provi
   return {
     start,
     enter() {
-      L.active = true; L.lastDash = -1;
+      L.active = true; L.lastDash = -1; $('status').setAttribute('aria-live', 'polite');
       $('replayControls').hidden = true; $('results').hidden = true;
       $('act').hidden = !hasGame; $('soon').hidden = hasGame; $('amountRow').hidden = !hasGame; $('amtLabel').hidden = !hasGame; $('amtOther').hidden = !hasGame;
       $('playersPanel').hidden = !hasGame;
