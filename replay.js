@@ -65,6 +65,7 @@ export function createReplay({ $, setText, setStatus }) {
     if (S.ride) S.ride = DATA.rides.find((r) => r.n === S.ride.n && r.start === S.ride.start) || S.ride;
     fillRides();
     fillOdds();
+    fillNights();
   }
 
   function startRide(n) {
@@ -226,9 +227,10 @@ export function createReplay({ $, setText, setStatus }) {
     $('resNote').textContent = rolled
       ? `${head} No bulb won, so the whole pot rolls over to the next night as a bonus pot. ${fmt(sqk(res.bonusOut))} SQK now waits for ${where}.${late}${yours}`
       : `${head} The ${winners} bet${winners === 1 ? '' : 's'} on lit bulbs shared the pot: ${fmt(res.staked)} SQK of bets${pot ? ` plus the ${fmt(pot)} SQK bonus pot` : ''}${res.burned >= .5 ? `, less ${fmt(res.burned)} SQK burned` : ''}. ${losers ? `${losers} bet${losers === 1 ? ' was on a higher bulb' : 's were on higher bulbs'} and lost.` : 'No bet lost.'}${late}${yours}`;
-    if (me && gain > .5) Board.coinShower(time);
+    const outS = Board.outSeconds(lit);
+    if (me && gain > .5) Board.coinShower(time, outS + 1);
     const reduced = Board.reducedMotion();
-    setTimeout(() => { if (S.active && S.over) $('results').hidden = false; }, reduced ? 0 : 2600);
+    setTimeout(() => { if (S.active && S.over) $('results').hidden = false; }, reduced ? 0 : Math.round((outS + 1) * 1000));   // once the lights are out
     setStatus('Blackout. See how it went below, or pick another night.');
   }
 
@@ -252,10 +254,10 @@ export function createReplay({ $, setText, setStatus }) {
     const pot = S.over ? (S.result.result === 'rolled' ? S.result.bonusOut : 0n) : S.potIn, potN = pot > 0n ? Math.round(sqk(pot)) : 0;
     const at = new Map();
     for (const p of bets()) { const a = at.get(p.bulb) || { bulb: p.bulb, me: false, others: 0 }; if (p.me) a.me = true; else a.others++; at.set(p.bulb, a); }
-    // The sign: short words that stay while the night does the same thing. On a phone the sign is 99 dots across: up to
-    // 16 letters stand still and change at once; a longer message scrolls, and the next one waits until it has passed
+    // The sign: short words that stay while the night does the same thing. On a phone the sign is 88 dots across: up to
+    // 14 letters stand still and change at once; a longer message scrolls, and the next one waits until it has passed
     // (a replay at 2x lights a bulb every 1.5 s). Only the blackout, the last word of the night, is long.
-    const msg = S.t < 0 ? 'PLACE YOUR BETS'
+    const msg = S.t < 0 ? (Board.signFits('PLACE YOUR BETS') ? 'PLACE YOUR BETS' : 'PLACE BETS')
       : S.over && S.result.result === 'rolled' ? `BLACKOUT ${lit ? `AFTER ${bulbs(lit)}` : 'BEFORE BULB 1'} * NOBODY WON * BONUS POT ${potN} ROLLS ON`
       : S.over ? `BLACKOUT AFTER ${bulbs(lit)} * SWEET DREAMS`
       : r === 0 ? 'WARMING UP' : !active(r) ? (r >= L ? 'IS HE ASLEEP?' : 'SHORT BREAK')
@@ -279,6 +281,29 @@ export function createReplay({ $, setText, setStatus }) {
     const pick = keep && DATA.rides.some((r) => String(r.n) === keep) ? keep : String((DATA.rides.slice().reverse().find((r) => r.stops >= 3) || DATA.rides[DATA.rides.length - 1] || {}).n || '');
     sel.value = pick;
   }
+  // His last 5 nights, newest first: when, a strip of 24 dots with the lit bulbs, how far. A tap replays that night.
+  function fillNights() {
+    const box = $('lastNights'), list = DATA.rides.slice().sort((a, b) => b.n - a.n).slice(0, 5);
+    const key = list.map((r) => `${r.n}:${r.stops}`).join(',');
+    if (box.dataset.key === key) return;
+    box.dataset.key = key; box.textContent = '';
+    for (const r of list) {
+      const d = new Date(r.utc), row = document.createElement('button');
+      row.type = 'button'; row.className = 'night'; row.title = 'Watch this night again';
+      const when = document.createElement('span'); when.className = 'when'; when.textContent = `${day(d)} · ${hhmm(d)}`;
+      const n = document.createElement('b'); n.className = 'n'; n.textContent = bulbs(r.stops);
+      const strip = document.createElement('span'); strip.className = 'strip'; strip.setAttribute('aria-hidden', 'true');
+      for (let k = 1; k <= 24; k++) { const i = document.createElement('i'); if (k <= r.stops) i.className = 'on'; strip.append(i); }
+      row.append(when, n, strip);
+      row.addEventListener('click', () => {
+        $('ride').value = String(r.n);
+        $('ride').dispatchEvent(new Event('change'));
+        $('modeReplay').click();
+        const b = document.querySelector('.board-wrap'); if (b && b.scrollIntoView) b.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      });
+      box.append(row);
+    }
+  }
   function fillOdds() {
     const box = $('odds'), byN = new Map(DATA.odds.map((o) => [o.bulb, o.pct]));
     box.textContent = '';
@@ -292,7 +317,7 @@ export function createReplay({ $, setText, setStatus }) {
     setRides,
     odds: () => DATA.odds,
     enter() {
-      S.active = true;
+      S.active = true; $('meter').hidden = true;
       $('replayControls').hidden = false; $('amtOther').hidden = true; $('soon').hidden = true; $('act').hidden = false; $('amountRow').hidden = false; $('amtLabel').hidden = false;
       $('walletLine').hidden = true; $('minePanel').hidden = true; $('playersPanel').hidden = false;
       setText('playersTitle', 'Pretend players');

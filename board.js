@@ -46,16 +46,21 @@ export function attach(el) {
 export function setup() {
   if (!canvas) return;
   const w = canvas.parentElement.clientWidth || 600;
+  const iw = typeof innerWidth === 'number' ? innerWidth : 0, ih = typeof innerHeight === 'number' && innerHeight ? innerHeight : 900;
   // The bulbs come in pages: 8 across on a wide board, 6 on a narrow one (24 bulbs = 3 or 4 whole pages). The grid is
   // exactly one page wide, so the dots grow with the board and a short night still fills a good part of the row.
   B.fit = w >= 760 ? 8 : 6;
   B.cols = B.fit * PITCH + 4; B.rows = ROWS;
-  // a wide but short screen (a 1366 x 768 laptop): the board may be at most (window height - 450 px) tall, so the bet
-  // button stays on the first screen; the row of 8 then sits in the middle of a wider grid (the same dots, margins)
-  if (typeof innerWidth === 'number' && innerWidth >= 1340) {
-    const cap = Math.max(280, (innerHeight || 900) - 450);
-    if (w * ROWS / B.cols > cap) B.cols = Math.ceil(w * ROWS / cap);
-  }
+  // A height cap, so the board never outgrows the window: on a wide screen (two columns) at most (window height -
+  // 450 px), so the bet row stays on the first screen of a 1366 x 768 laptop; on any other landscape window (a phone
+  // on its side, a short laptop) at most (window height - 120 px). The row then sits in the middle of a wider grid:
+  // the same dots, with margins (only the page's own bulbs are drawn there).
+  const cap = iw >= 1340 ? Math.max(280, ih - 450) : iw > ih && w >= 560 ? Math.max(240, ih - 120) : Infinity;
+  if (w * ROWS / B.cols > cap) B.cols = Math.ceil(w * ROWS / cap);
+  // nothing changed (a phone's address bar showing or hiding): keep the board as it is
+  const key = `${B.cols}|${B.fit}|${w}|${Math.round(canvas.getBoundingClientRect().height)}|${getComputedStyle(document.documentElement).getPropertyValue('--board').trim()}`;
+  if (key === B.key && B.buf) return;
+  B.key = key;
   B.x0 = Math.floor((B.cols - ((B.fit - 1) * PITCH + BW)) / 2);
   canvas.style.aspectRatio = `${B.cols} / ${B.rows}`;   // round dots: the page's style already gives this ratio (no jump)
   B.buf = new Int8Array(B.cols * B.rows); B.lvl = new Uint8Array(B.cols * B.rows);
@@ -125,9 +130,9 @@ export function spark(k, time) {
   const t0 = Math.max(time, last + LIGHT.gap);
   A.sparks.push({ k, t0 }); A.litAt[k] = t0 + LIGHT.on;
 }
-export function coinShower(time) {
+export function coinShower(time, after = 2.6) {
   if (REDUCED) return;
-  for (let i = 0; i < 26; i++) A.coins.push({ x: (i * 7 + 3) % B.cols, v: 9 + (i % 5) * 3, t0: time + 2.6 + (i % 9) * .12 });
+  for (let i = 0; i < 26; i++) A.coins.push({ x: (i * 7 + 3) % B.cols, v: 9 + (i % 5) * 3, t0: time + after + (i % 9) * .12 });
 }
 
 // ---------- scene ----------
@@ -166,6 +171,8 @@ const TURN_WAIT = 1.1, TURN_TIME = .75, TURN_BACK = .45;
 const pagesOf = (lit) => Math.max(1, Math.ceil(lit / visibleBulbs()));
 // how long the lights take to go out after a blackout: 1.6 s, and 1.4 s more for each page the row goes back over
 export const outSeconds = (lit) => 1.6 + 1.4 * (pagesOf(lit) - 1);
+// whether a message stands still on the sign (it fits the board's width) rather than scrolling
+export const signFits = (m) => m.length * 6 - 1 <= (B.cols || 116) - 4;
 function pageFor(v, time) {
   const P = visibleBulbs(), lit = v.lit;
   if (v.outP != null && lit > P) {
@@ -175,17 +182,18 @@ function pageFor(v, time) {
     return Math.min(lastPage(), Math.floor((front - 1) / P));
   }
   let pg = lit === 0 ? 0 : Math.floor((lit - 1) / P);
-  if (lit > 0 && lit % P === 0 && lit < 24 && v.outP == null && !v.resting) {
-    const at = A.litAt[lit];
-    if (at == null || time >= at + TURN_WAIT) pg++;   // litAt = when that bulb is fully on
-  }
+  // a full row turns on only while he keeps running
+  if (lit > 0 && lit % P === 0 && lit < 24 && v.outP == null && !v.resting) pg++;
+  // ...and only once the row's last bulb is fully on, and a moment more (litAt = when a bulb is fully on). Bulbs that
+  // come fast (a 4x replay, a tab coming back) hold the row until they have switched on where they can be seen.
+  while (pg > 0) { const at = A.litAt[pg * P]; if (at != null && time < at + TURN_WAIT) pg--; else break; }
   return Math.min(lastPage(), pg);
 }
 // where the row is now, in bulbs (a page turn slides it: whole dots at a time, like a scrolling LED sign)
 function viewOff(v, time) {
   const P = visibleBulbs(), pg = pageFor(v, time);
   if (A.page == null || REDUCED) { A.page = pg; A.turn = null; }
-  else if (pg !== A.page) { A.turn = { from: (A.turn ? A.off : pageStart(A.page)), t0: time, dur: pg < A.page && v.outP != null ? TURN_BACK : TURN_TIME }; A.page = pg; }
+  else if (pg !== A.page) { A.turn = { from: (A.turn ? A.off : pageStart(A.page)), to: pageStart(pg), t0: time, dur: pg < A.page && v.outP != null ? TURN_BACK : TURN_TIME }; A.page = pg; }
   let off = pageStart(A.page);
   if (A.turn) {
     const p = Math.min(1, (time - A.turn.t0) / A.turn.dur), e = p < .5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
@@ -198,7 +206,12 @@ function viewOff(v, time) {
 // the first bulb of page pg, less one (the last page ends at bulb 24)
 const pageStart = (pg) => Math.max(0, Math.min(24 - visibleBulbs(), pg * visibleBulbs()));
 // the bulbs on the row right now: the page's own, or every one in view while it turns
-const onRow = (k, x) => (A.turn ? x > -BW && x < B.cols : k > Math.round(A.off || 0) && k <= Math.round(A.off || 0) + visibleBulbs());
+const onRow = (k, x) => {
+  if (x <= -BW || x >= B.cols) return false;
+  if (!A.turn) return k > Math.round(A.off || 0) && k <= Math.round(A.off || 0) + visibleBulbs();
+  const lo = Math.min(A.turn.from, A.turn.to), hi = Math.max(A.turn.from, A.turn.to) + visibleBulbs();   // the two pages it moves between
+  return k > Math.round(lo) && k <= Math.round(hi);
+};
 const bulbX = (k, off) => Math.round((B.x0 || 0) + (k - 1 - off) * PITCH);     // left edge of bulb k
 const STARS = Array.from({ length: 44 }, (_, i) => ({ x: (i * 37 + 23) % 331, y: 10 + (i * 5) % 7, ph: i * 1.7, rate: .7 + (i % 5) * .23 }));
 // now and then a shooting star crosses the sky band
@@ -416,7 +429,7 @@ export function draw(v, time, dt) {
   sparks(time, off);
   // your bulb is further along than the board shows: its number and a small arrow at the right edge
   const mine = v.pick || 0;
-  if (mine && !(outP != null && outP >= 1)) { const px = bulbX(mine, off); if (px >= 0 && px + BW <= B.cols) pickMark(px, time); }
+  if (mine && !(outP != null && outP >= 1)) { const px = bulbX(mine, off); if (px >= 0 && px + BW <= B.cols && onRow(mine, px)) pickMark(px, time); }
   if (mine > off + visibleBulbs() && !(outP != null && outP >= 1)) {
     const n = String(mine), x = B.cols - 4 * n.length - 3;
     digits(mine, x, MARK_Y, 'm', 3); for (const [i, j] of [[0, 0], [1, 1], [0, 2]]) dot(B.cols - 2 + i, MARK_Y + 1 + j - 1, 'm', 3);
