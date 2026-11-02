@@ -151,6 +151,8 @@ details p { margin: 0 0 12px; color: var(--dim); max-width: 70ch; }
 .rider .who small { display: block; color: var(--dim); font-size: 12px; }
 .rider .amt { font-family: var(--num); font-size: 22px; font-weight: 500; font-variant-numeric: tabular-nums; text-align: right; }
 .empty { margin: 0; color: var(--dim); }
+/* tonight's pot under the bets panel title: the whole pot, how many bets, the bonus part */
+.pot-line { margin: 0; font-family: var(--num); font-size: 20px; letter-spacing: .03em; color: var(--gold); font-variant-numeric: tabular-nums; }
 .odds { display: grid; grid-template-columns: repeat(21, minmax(0, 1fr)); align-items: end; gap: 3px; height: 100px; margin-top: 4px; }
 .odds div { background-image: radial-gradient(circle at center, var(--gold-dot) 2px, transparent 2.6px); background-size: 6px 6px; background-position: center bottom; min-height: 6px; }
 .odds-axis { display: flex; justify-content: space-between; font-size: 11px; color: var(--dim); margin: -10px 0 0; }

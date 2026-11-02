@@ -23,6 +23,21 @@ export function sqkText(wei) {
 }
 const signedSqk = (wei) => (wei > W / 2n ? `+${sqkText(wei)}` : wei < -W / 2n ? `−${sqkText(-wei)}` : '±0');
 const bulbs = (n) => `${n} bulb${n === 1 ? '' : 's'}`;
+// whole SQK, rounded, for the LED sign
+const wholeSqk = (wei) => Math.round(Number(wei / (W / 100n)) / 100);
+// The pot in words, for the status line (with a leading space) and the bets panel: tonight's bets with any bonus pot
+// coming in, or the bonus pot alone. d: { current, staked, potIn, voided } from derive().
+export function potWords(d, form = 'caption') {
+  if (d.voided) return '';
+  const n = d.current.length, bonus = d.potIn > 0n ? sqkText(d.potIn) : null;
+  if (d.staked > 0n) {
+    const total = sqkText(d.staked + d.potIn), from = `${n} bet${n === 1 ? '' : 's'}`;
+    return form === 'panel' ? `${total} SQK in the pot · ${from}${bonus ? ` · ${bonus} bonus` : ''}`
+      : ` Pot: ${total} SQK from ${from}${bonus ? `, with the ${bonus} SQK bonus pot` : ''}.`;
+  }
+  if (bonus) return form === 'panel' ? `${bonus} SQK bonus pot waiting for the winners` : ` Bonus pot: ${bonus} SQK.`;
+  return '';
+}
 const hhmm = (d) => d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 const day = (d) => d.toLocaleDateString([], { month: 'short', day: 'numeric' });
 // which ride a bet counts for (live-model.betWindow's night)
@@ -290,6 +305,8 @@ export function createLive({ $, setText, setStatus, config, base, onRides, provi
     // after the game ended the bonus pot is paid back to the bets it came from: don't show it as a pot any more
     const potIn = hasGame && L.snap && !voided ? L.chained.potIn : 0n;
     const current = L.groups.current;
+    // tonight's pot: everyone's bets on this ride (or his next one), plus the bonus pot coming in
+    const staked = voided ? 0n : current.reduce((a, b) => a + b.stake, 0n);
     const mine = L.account ? current.find((b) => same(b.owner, L.account)) : null;
     // what you can collect: bets the contract has settled, and bets in rides that are over but that the contract
     // hasn't counted yet (nobody has played since): collecting counts the ride first, and the page's numbers are the
@@ -303,7 +320,7 @@ export function createLive({ $, setText, setStatus, config, base, onRides, provi
     }
     const collectIds = collect.map((x) => x.id), collectSum = collect.reduce((a, x) => a + x.amount, 0n);
     const result = voided || !L.account ? null : lastResult(collect, collectSum, current, last);
-    return { now, cur, S, N, open, lit, wheel, running, win, started, late, last, sinceOut, potIn, current, mine: voided ? null : mine, collectIds, collectSum, result, voided };
+    return { now, cur, S, N, open, lit, wheel, running, win, started, late, last, sinceOut, potIn, staked, current, mine: voided ? null : mine, collectIds, collectSum, result, voided };
   }
 
   // How your last bet went, for the dashboard (until you start picking a new bet) and the sentence under the button:
@@ -673,6 +690,8 @@ export function createLive({ $, setText, setStatus, config, base, onRides, provi
     const box = $('riders');
     const key = JSON.stringify([d.lit, !!d.open, d.started, L.account, d.voided, d.current.map((b) => b.id)]);
     setText('playersTitle', d.voided ? 'Bets waiting when the game ended' : d.open ? "Tonight's bets" : d.started ? "This ride's bets" : 'Bets for his next ride');
+    const potLine = $('potLine'), pw = potWords(d, 'panel');
+    if (potLine) { setText('potLine', pw); potLine.hidden = !pw; }
     if (box.dataset.key !== key) {
       box.dataset.key = key; box.textContent = '';
       const list = d.current.slice().sort((a, b) => (same(b.owner, L.account) ? 1 : 0) - (same(a.owner, L.account) ? 1 : 0) || a.bulb - b.bulb || a.id - b.id);
@@ -791,7 +810,7 @@ export function createLive({ $, setText, setStatus, config, base, onRides, provi
   function caption(d) {
     if (d.loading) return L.err.core ? 'Can\'t reach Squeekchain right now. Trying again…' : 'Connecting to Squeekchain…';
     const clock = hhmm(new Date(d.now * 1000));
-    const pot = d.potIn > 0n ? ` Bonus pot: ${sqkText(d.potIn)} SQK.` : '';
+    const pot = potWords(d);
     const rec = d.wheel ? '' : ' Following Squeekchain\'s 10-minute records.';
     if (d.open) {
       const since = hhmm(new Date(M.roundStart(d.open.start, L.G) * 1000));
@@ -848,7 +867,11 @@ export function createLive({ $, setText, setStatus, config, base, onRides, provi
     L.boardLit = lit; // a tap on the board is read for the same view as this frame
     const per = M.perBulb(d.current, L.account);
     const markers = goingOut || d.voided ? [] : [...per].map(([bulb, x]) => ({ bulb, me: x.mine, others: x.count - (x.mine ? 1 : 0) }));
-    const potN = d.potIn > 0n ? Math.round(Number(d.potIn / (W / 100n)) / 100) : 0;
+    const potN = d.potIn > 0n ? wholeSqk(d.potIn) : 0;
+    // the sign in the sky: tonight's whole pot once anyone has bet, else the bonus pot alone (none after the game ended)
+    // (while the lights go out the sign keeps to the bonus pot, which the blackout message talks about)
+    const showAll = !d.voided && !goingOut && d.staked > 0n;
+    const signPot = d.voided ? 0 : showAll ? wholeSqk(d.staked + d.potIn) : potN;
     const resting = d.running === null ? !(d.open && d.open.idleRun === 0 && d.late <= 1) : !d.running;
     // a quiet round is recorded, but the wheel turns again right now: what the cam shows wins (no flicker). Unless
     // the next round has ended unrecorded: the break may have put the lights out, so no "NEXT: BULB" promise yet
@@ -887,7 +910,7 @@ export function createLive({ $, setText, setStatus, config, base, onRides, provi
     else if (d.started) msg = 'SHORT BREAK * LIGHTS ON SOON';
     else msg = hasGame ? 'HE IS ASLEEP * BETS NOW COUNT FOR HIS NEXT RIDE' : 'HE IS ASLEEP * SWEET DREAMS';
     // the bulb marked as picked: your bet's, or the one the picker shows (none while the lights go out)
-    return { lit, flicker, resting, pace, speedMul: 1, pot: potN, markers, pick: d.voided || goingOut ? 0 : d.mine ? d.mine.bulb : shown(d), outP: goingOut ? outP : null, msg };
+    return { lit, flicker, resting, pace, speedMul: 1, pot: signPot, potLabel: showAll ? 'POT' : 'BONUS POT', markers, pick: d.voided || goingOut ? 0 : d.mine ? d.mine.bulb : shown(d), outP: goingOut ? outP : null, msg };
   }
 
   // ---------------------------------------------------------------- the player's moves
