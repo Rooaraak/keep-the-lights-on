@@ -89,7 +89,10 @@ const full = M.walkNights({ rides: [], settledThrough: 0 }, active, ROUNDS.settl
   ok(same(base.rides.map((r) => [r.start, r.C, r.lit, r.w]), full.rides.map((r) => [r.start, r.C, r.lit, r.w])) && !base.open, 'site/data/rides.json is the same history');
   const od = M.odds(full.rides);
   const shares = RIDES_SRC.summary.reachingNStops.map((x) => Math.round(x.share * 100));
-  ok(same(od.slice(0, shares.length).map((o) => o.pct), shares) && od[5].pct === 37, `odds per bulb match data/rides.json (bulb 6: lit on ${od[5].pct}% of his nights, ${od[5].lit} of ${od[5].total})`);
+  // spot check bulb 6 against a plain count of the source nights (was a fixed 37 % at 19 nights; data refreshed 11-02)
+  const six = want.filter((r) => r.stopCount >= 6).length, sixPct = Math.round((100 * six) / want.length);
+  ok(same(od.slice(0, shares.length).map((o) => o.pct), shares) && od[5].pct === sixPct && od[5].lit === six && od[5].total === want.length,
+    `odds per bulb match data/rides.json (bulb 6: lit on ${od[5].pct}% of his nights, ${od[5].lit} of ${od[5].total}; counted ${six} of ${want.length})`);
 
   // a break, a blackout at the STATION edge, a STATION end and a false start, on made-up rounds
   const runs = (from, to) => Array.from({ length: to - from + 1 }, (_, i) => ({ id: from + i, work: 100 }));

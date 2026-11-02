@@ -138,14 +138,15 @@ export function coinShower(time, after = 2.6) {
 // ---------- scene ----------
 const DIG = { 0: [7, 5, 5, 5, 7], 1: [2, 6, 2, 2, 7], 2: [7, 1, 7, 4, 7], 3: [7, 1, 7, 1, 7], 4: [5, 5, 7, 1, 1], 5: [7, 4, 7, 1, 7], 6: [7, 4, 7, 5, 7], 7: [7, 1, 2, 2, 2], 8: [7, 5, 7, 5, 7], 9: [7, 5, 7, 1, 7] };
 function digits(n, x0, y0, k, lv) { let x = x0; for (const ch of String(n)) { const g = DIG[ch]; for (let j = 0; j < 5; j++) for (let i = 0; i < 3; i++) if (g[j] & (4 >> i)) dot(x + i, y0 + j, k, lv); x += 4; } }
-// "BONUS POT 950" in the same 3x5 dots, in the band of sky between the sign and the bulb numbers
+// "POT 1250" (tonight's bets with any bonus pot) or "BONUS POT 950" (only the pot carried over) in the same 3x5 dots,
+// in the band of sky between the sign and the bulb numbers
 const SMALL = { ...DIG, B: [6, 5, 6, 5, 6], O: [2, 5, 5, 5, 2], N: [5, 7, 7, 5, 5], U: [5, 5, 5, 5, 7], S: [3, 4, 2, 1, 6], P: [6, 5, 6, 4, 4], T: [7, 2, 2, 2, 2], ' ': [0, 0, 0, 0, 0] };
 const POT_X = 2, POT_Y = 11;
-const potText = (n) => `BONUS POT ${n}`;
-const potWidth = (n) => potText(n).length * 4 - 1;
-function potSign(n) {
+const potText = (v) => `${v.potLabel || 'BONUS POT'} ${v.pot}`;
+const potWidth = (v) => potText(v).length * 4 - 1;
+function potSign(v) {
   let x = POT_X;
-  for (const ch of potText(n)) { const g = SMALL[ch]; for (let j = 0; j < 5; j++) for (let i = 0; i < 3; i++) if (g[j] & (4 >> i)) dot(x + i, POT_Y + j, 'o', 3); x += 4; }
+  for (const ch of potText(v)) { const g = SMALL[ch]; for (let j = 0; j < 5; j++) for (let i = 0; i < 3; i++) if (g[j] & (4 >> i)) dot(x + i, POT_Y + j, 'o', 3); x += 4; }
 }
 // The string's bulbs: the hamster cam's big bulb, hanging upside down from the cable. 11 x 14 dots: the wire, the screw
 // base, the glass with its filament. Lit: warm glass, white-hot middle, a glint.
@@ -384,7 +385,8 @@ function marquee(dt, msg) {
 //   resting      he is curled up in the wheel (the next bulb only warms up while he runs)
 //   pace         turns per 10 minutes (the hamster cam shows it)
 //   speedMul     replay speed (1 live)
-//   pot          bonus pot in whole SQK to show on the sign, 0 = none
+//   pot          the pot in whole SQK to show on the sign, 0 = none
+//   potLabel     'POT' (tonight's bets, with any bonus pot) or 'BONUS POT' (the default: only the pot carried over)
 //   markers      [{ bulb, me, others }]
 //   pick         a bulb further along than the view, shown as an arrow at the right edge (0 = none)
 //   outP         null, or 0 -> 1 while the lights go out after a blackout, the last one first (>= 1: all dark)
@@ -400,9 +402,9 @@ export function draw(v, time, dt) {
   A.time = time;
   const me = (v.markers || []).find((m) => m.me);
   if (!me) A.meBulb = null; else if (me.bulb !== A.meBulb) { A.meBulb = me.bulb; A.meT0 = time; }
-  sky(time, outP != null ? 0 : Math.min(2, Math.floor(lit / 6)), v.pot ? potWidth(v.pot) : 0);
+  sky(time, outP != null ? 0 : Math.min(2, Math.floor(lit / 6)), v.pot ? potWidth(v) : 0);
   if (!v.pot) meteor(time);
-  if (v.pot) potSign(v.pot);
+  if (v.pot) potSign(v);
   town(lit, time, outP != null && outP > .6);
   // the cable glows up to the last bulb that is fully on (a bulb still switching on doesn't count yet)
   let glow = outP != null ? 0 : lit;
@@ -452,7 +454,7 @@ export function draw(v, time, dt) {
 // The board's text for screen readers (kept up to date even while the board is off screen and not drawn).
 export function describe(v) {
   if (!canvas) return;
-  const label = `LED board: Squeektoshi's wheel powers a string of numbered bulbs. ${v.lit} lit${v.pot ? `. Bonus pot ${v.pot.toLocaleString('en-US')} SQK` : ''}`;
+  const label = `LED board: Squeektoshi's wheel powers a string of numbered bulbs. ${v.lit} lit${v.pot ? `. ${v.potLabel === 'POT' ? 'Pot' : 'Bonus pot'} ${v.pot.toLocaleString('en-US')} SQK` : ''}`;
   if (canvas.getAttribute('aria-label') !== label) canvas.setAttribute('aria-label', label);
 }
 

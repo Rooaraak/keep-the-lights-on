@@ -18,6 +18,8 @@ const puppeteer = require(process.env.PUPPETEER || 'puppeteer'); // PUPPETEER: p
 const CHROME = process.env.CHROME || undefined; // CHROME: a Chrome to use instead of puppeteer's own
 const SITE = path.join(__dirname, '..');
 const ROOT = path.join(SITE, '..');
+const PINNED_RIDES = require('node:fs').readFileSync(path.join(__dirname, 'fixtures', 'rides-780.json'), 'utf8');
+const PIN_THROUGH = JSON.parse(PINNED_RIDES).settledThrough;
 // a free port, picked at start: a fixed one can be held by another local server, and the page would then load
 // someone else's site
 let PORT = 0;
@@ -40,7 +42,8 @@ const G = ROUNDS.genesis;
 const CORE = ROUNDS.core;
 const word = (v) => BigInt(v).toString(16).padStart(64, '0');
 function makeCore(tail, settled) {
-  const active = ROUNDS.active.map((a) => ({ id: a.id, cum: BigInt(a.cumulative) }));
+  // the real rounds up to the pinned history's end (round 780); data/rounds.json itself is refreshed now and then
+  const active = ROUNDS.active.filter((a) => a.id <= PIN_THROUGH).map((a) => ({ id: a.id, cum: BigInt(a.cumulative) }));
   let cum = active[active.length - 1].cum;
   for (const [id, work] of tail) { cum += BigInt(work); active.push({ id, cum }); }
   const posAt = (r) => { let c = 0n; for (const a of active) if (a.id <= r) c = a.cum; return c; };
@@ -126,6 +129,8 @@ async function openPage(browser, opts, scenarioName, hash = '') {
   page.on('request', (req) => {
     const u = req.url();
     if (u === `${ORIGIN}/config.json`) return req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify(CONFIG) });
+    // the history the scenarios are built on: 19 nights through round 780 (the live file is refreshed now and then)
+    if (u === `${ORIGIN}/data/rides.json`) return req.respond({ status: 200, contentType: 'application/json', body: PINNED_RIDES });
     if (u === `${ORIGIN}/__rpc`) {
       const body = JSON.parse(req.postData());
       const ans = Array.isArray(body) ? body.map((m) => rpcAnswer(core, now, m)) : rpcAnswer(core, now, body);

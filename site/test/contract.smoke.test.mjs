@@ -22,6 +22,7 @@ const puppeteer = require(process.env.PUPPETEER || 'puppeteer');
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SITE = join(HERE, '..');
 const OUT_DIR = join(SITE, '..', 'out');
+const PINNED_RIDES = readFileSync(join(SITE, 'test', 'fixtures', 'rides-780.json'), 'utf8');
 // free ports, picked at start (a fixed port can be held by another local server)
 const freePort = () => new Promise((resolve, reject) => { const s = createServer(); s.on('error', reject); s.listen(0, '127.0.0.1', () => { const p = s.address().port; s.close(() => resolve(p)); }); });
 const WEB = await freePort(), ANVIL = await freePort(), ORIGIN = `http://127.0.0.1:${WEB}`, RPC = `http://127.0.0.1:${ANVIL}`;
@@ -102,6 +103,8 @@ try {
     const u = req.url();
     try {
       if (u === `${ORIGIN}/config.json`) return req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify(config) });
+      // the history the test is built on: 19 nights through round 780 (the live file is refreshed now and then)
+      if (u === `${ORIGIN}/data/rides.json`) return req.respond({ status: 200, contentType: 'application/json', body: PINNED_RIDES });
       if (u === `${ORIGIN}/__status`) return req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify({ generatedAt: new Date().toISOString(), measurement: { observedAt: new Date().toISOString(), staleAfterSeconds: 120, speedMmPerSecond: 0, rpmMilli: 0 } }) });
       if (u === `${ORIGIN}/__rpc`) {
         const r = await fetch(RPC, { method: 'POST', headers: { 'content-type': 'application/json' }, body: req.postData() });

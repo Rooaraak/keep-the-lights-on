@@ -20,6 +20,8 @@ export const ANVIL = process.env.ANVIL || 'anvil';
 export const HERE = dirname(fileURLToPath(import.meta.url));
 export const SITE = join(HERE, '..', '..');
 export const ROOT = join(SITE, '..');
+// the ride history the scenarios are built on (19 nights through round 780), served in place of data/rides.json
+export const PINNED_RIDES = join(HERE, '..', 'fixtures', 'rides-780.json');
 const OUT = join(ROOT, 'out');
 export const W = 10n ** 18n;
 export const LAUNCH_LIMIT_MS = 85_000; // a cron kills Chrome older than ~2 min; stay well under 90 s
@@ -175,6 +177,8 @@ export async function startWeb(state) {
   const port = await freePort();
   const server = createServer((req, res) => {
     const u = new URL(req.url, 'http://x');
+    // the history the scenarios are built on: 19 nights through round 780 (the live file is refreshed now and then)
+    if (u.pathname === '/data/rides.json') { res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' }); return res.end(readFileSync(PINNED_RIDES)); }
     if (u.pathname === '/config.e2e.json') { res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' }); return res.end(JSON.stringify(state.config)); }
     if (u.pathname === '/__status') {
       if (state.wheel == null) { res.writeHead(503); return res.end(); }
@@ -328,7 +332,7 @@ export function pageTools(page) {
         if (live.__wrapped) return;
         const v0 = live.view;
         // (outP: the lights going out after a blackout, 0 -> 1, else null; __outFrame keeps the last such frame)
-        live.view = (time, step) => { const v = v0(time, step); window.__board = { lit: v.lit, flicker: !!v.flicker, resting: !!v.resting, pot: v.pot || 0, msg: v.msg, pick: v.pick, markers: (v.markers || []).map((m) => m.bulb), outP: v.outP ?? null }; if (v.outP != null) window.__outFrame = window.__board; return v; };
+        live.view = (time, step) => { const v = v0(time, step); window.__board = { lit: v.lit, flicker: !!v.flicker, resting: !!v.resting, pot: v.pot || 0, potLabel: v.potLabel || null, msg: v.msg, pick: v.pick, markers: (v.markers || []).map((m) => m.bulb), outP: v.outP ?? null }; if (v.outP != null) window.__outFrame = window.__board; return v; };
         live.__wrapped = true;
         // every sentence shown under the dashboard, including the short-lived ones
         window.__said = window.__said || [];

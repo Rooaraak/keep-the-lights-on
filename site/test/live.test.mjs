@@ -82,7 +82,19 @@ function fakePage() {
   const t = (id) => $(id).textContent.replace(/\s+/g, ' ').trim();
   return { $, setText, setStatus, t };
 }
-const { createLive } = await import('../live.js');
+const { createLive, potWords } = await import('../live.js');
+
+// ---------------------------------------------------------------- tonight's pot in words (pure)
+{
+  const bet = (stake) => ({ stake: stake * W });
+  const d = (stakes, bonus, voided = false) => ({ current: stakes.map(bet), staked: stakes.reduce((a, x) => a + x * W, 0n), potIn: bonus * W, voided });
+  ok(potWords(d([], 0n)) === '' && potWords(d([], 0n), 'panel') === '', 'pot words: no bets and no bonus pot say nothing');
+  ok(potWords(d([], 300n)) === ' Bonus pot: 300 SQK.' && potWords(d([], 300n), 'panel') === '300 SQK bonus pot waiting for the winners', 'pot words: only a bonus pot', potWords(d([], 300n), 'panel'));
+  ok(potWords(d([100n], 0n)) === ' Pot: 100 SQK from 1 bet.' && potWords(d([100n], 0n), 'panel') === '100 SQK in the pot · 1 bet', 'pot words: one bet, no bonus', potWords(d([100n], 0n)));
+  ok(potWords(d([100n, 200n, 100n], 300n)) === ' Pot: 700 SQK from 3 bets, with the 300 SQK bonus pot.' && potWords(d([100n, 200n, 100n], 300n), 'panel') === '700 SQK in the pot · 3 bets · 300 bonus', 'pot words: bets and a bonus pot add up', potWords(d([100n, 200n, 100n], 300n), 'panel'));
+  ok(potWords(d([1250n], 0n), 'panel') === '1,250 SQK in the pot · 1 bet', 'pot words: thousands get a comma', potWords(d([1250n], 0n), 'panel'));
+  ok(potWords(d([100n], 300n, true)) === '' && potWords(d([100n], 300n, true), 'panel') === '', 'pot words: nothing after the game ended');
+}
 
 // ---------------------------------------------------------------- the chain, a lagging page RPC, the wallet
 const anvil = await H.startAnvil();

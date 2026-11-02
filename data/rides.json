@@ -1,8 +1,8 @@
 {
- "generatedAt": "2026-11-01T00:17:07.628Z",
+ "generatedAt": "2026-11-02T19:15:50.821Z",
  "source": "data/rounds.json",
- "settledThrough": 780,
- "roundsFetchedAt": "2026-10-31T23:52:23.951Z",
+ "settledThrough": 1040,
+ "roundsFetchedAt": "2026-11-02T19:15:46.068Z",
  "rules": {
   "roundTime": "round R = [G+(R-1)*600, G+R*600)",
   "warmUp": "the departure round (first active round) is the warm-up and is not a stop",
@@ -40,157 +40,157 @@
   "mismatches": []
  },
  "summary": {
-  "completeRides": 19,
+  "completeRides": 25,
   "openRides": 0,
   "falseStarts": 2,
   "stationEnds": 0,
   "reachingNStops": [
    {
     "n": 1,
-    "reached": 17,
-    "total": 19,
-    "share": 0.8947,
-    "survivalTimesTicket": 1.193
+    "reached": 23,
+    "total": 25,
+    "share": 0.92,
+    "survivalTimesTicket": 1.227
    },
    {
     "n": 2,
-    "reached": 15,
-    "total": 19,
-    "share": 0.7895,
-    "survivalTimesTicket": 1.316
+    "reached": 20,
+    "total": 25,
+    "share": 0.8,
+    "survivalTimesTicket": 1.333
    },
    {
     "n": 3,
-    "reached": 10,
-    "total": 19,
-    "share": 0.5263,
-    "survivalTimesTicket": 1.053
+    "reached": 14,
+    "total": 25,
+    "share": 0.56,
+    "survivalTimesTicket": 1.12
    },
    {
     "n": 4,
-    "reached": 8,
-    "total": 19,
-    "share": 0.4211,
-    "survivalTimesTicket": 0.982
+    "reached": 11,
+    "total": 25,
+    "share": 0.44,
+    "survivalTimesTicket": 1.027
    },
    {
     "n": 5,
-    "reached": 7,
-    "total": 19,
-    "share": 0.3684,
-    "survivalTimesTicket": 0.982
+    "reached": 10,
+    "total": 25,
+    "share": 0.4,
+    "survivalTimesTicket": 1.067
    },
    {
     "n": 6,
-    "reached": 7,
-    "total": 19,
-    "share": 0.3684,
-    "survivalTimesTicket": 1.105
+    "reached": 10,
+    "total": 25,
+    "share": 0.4,
+    "survivalTimesTicket": 1.2
    },
    {
     "n": 7,
-    "reached": 7,
-    "total": 19,
-    "share": 0.3684,
-    "survivalTimesTicket": 1.228
+    "reached": 8,
+    "total": 25,
+    "share": 0.32,
+    "survivalTimesTicket": 1.067
    },
    {
     "n": 8,
-    "reached": 6,
-    "total": 19,
-    "share": 0.3158,
-    "survivalTimesTicket": 1.158
+    "reached": 7,
+    "total": 25,
+    "share": 0.28,
+    "survivalTimesTicket": 1.027
    },
    {
     "n": 9,
-    "reached": 5,
-    "total": 19,
-    "share": 0.2632,
-    "survivalTimesTicket": 1.053
+    "reached": 6,
+    "total": 25,
+    "share": 0.24,
+    "survivalTimesTicket": 0.96
    },
    {
     "n": 10,
     "reached": 4,
-    "total": 19,
-    "share": 0.2105,
-    "survivalTimesTicket": 0.912
+    "total": 25,
+    "share": 0.16,
+    "survivalTimesTicket": 0.693
    },
    {
     "n": 11,
     "reached": 4,
-    "total": 19,
-    "share": 0.2105,
-    "survivalTimesTicket": 0.982
+    "total": 25,
+    "share": 0.16,
+    "survivalTimesTicket": 0.747
    },
    {
     "n": 12,
     "reached": 4,
-    "total": 19,
-    "share": 0.2105,
-    "survivalTimesTicket": 1.053
+    "total": 25,
+    "share": 0.16,
+    "survivalTimesTicket": 0.8
    },
    {
     "n": 13,
     "reached": 4,
-    "total": 19,
-    "share": 0.2105,
-    "survivalTimesTicket": 1.123
+    "total": 25,
+    "share": 0.16,
+    "survivalTimesTicket": 0.853
    },
    {
     "n": 14,
     "reached": 4,
-    "total": 19,
-    "share": 0.2105,
-    "survivalTimesTicket": 1.193
+    "total": 25,
+    "share": 0.16,
+    "survivalTimesTicket": 0.907
    },
    {
     "n": 15,
     "reached": 3,
-    "total": 19,
-    "share": 0.1579,
-    "survivalTimesTicket": 0.947
+    "total": 25,
+    "share": 0.12,
+    "survivalTimesTicket": 0.72
    },
    {
     "n": 16,
     "reached": 3,
-    "total": 19,
-    "share": 0.1579,
-    "survivalTimesTicket": 1
+    "total": 25,
+    "share": 0.12,
+    "survivalTimesTicket": 0.76
    },
    {
     "n": 17,
     "reached": 3,
-    "total": 19,
-    "share": 0.1579,
-    "survivalTimesTicket": 1.053
+    "total": 25,
+    "share": 0.12,
+    "survivalTimesTicket": 0.8
    },
    {
     "n": 18,
     "reached": 2,
-    "total": 19,
-    "share": 0.1053,
-    "survivalTimesTicket": 0.737
+    "total": 25,
+    "share": 0.08,
+    "survivalTimesTicket": 0.56
    },
    {
     "n": 19,
     "reached": 2,
-    "total": 19,
-    "share": 0.1053,
-    "survivalTimesTicket": 0.772
+    "total": 25,
+    "share": 0.08,
+    "survivalTimesTicket": 0.587
    },
    {
     "n": 20,
     "reached": 2,
-    "total": 19,
-    "share": 0.1053,
-    "survivalTimesTicket": 0.807
+    "total": 25,
+    "share": 0.08,
+    "survivalTimesTicket": 0.613
    },
    {
     "n": 21,
     "reached": 1,
-    "total": 19,
-    "share": 0.0526,
-    "survivalTimesTicket": 0.421
+    "total": 25,
+    "share": 0.04,
+    "survivalTimesTicket": 0.32
    }
   ],
   "longest": {
@@ -294,6 +294,36 @@
     "start": 767,
     "startUtc": "2026-10-31T21:30:00Z",
     "stops": 9
+   },
+   {
+    "start": 791,
+    "startUtc": "2026-11-01T01:30:00Z",
+    "stops": 6
+   },
+   {
+    "start": 819,
+    "startUtc": "2026-11-01T06:10:00Z",
+    "stops": 2
+   },
+   {
+    "start": 909,
+    "startUtc": "2026-11-01T21:10:00Z",
+    "stops": 9
+   },
+   {
+    "start": 929,
+    "startUtc": "2026-11-02T00:30:00Z",
+    "stops": 6
+   },
+   {
+    "start": 948,
+    "startUtc": "2026-11-02T03:40:00Z",
+    "stops": 3
+   },
+   {
+    "start": 965,
+    "startUtc": "2026-11-02T06:30:00Z",
+    "stops": 1
    }
   ]
  },
@@ -1326,6 +1356,273 @@
     }
    ],
    "lightsOutUtc": "2026-10-31T23:10:00Z"
+  },
+  {
+   "n": 20,
+   "start": 791,
+   "warmUp": 791,
+   "startUtc": "2026-11-01T01:30:00Z",
+   "stops": [
+    792,
+    793,
+    794,
+    795,
+    796,
+    797
+   ],
+   "stopCount": 6,
+   "breathers": [],
+   "end": "lightsOut",
+   "C": 798,
+   "stationEnd": null,
+   "durationRounds": 7,
+   "falseStart": false,
+   "rounds": [
+    {
+     "id": 791,
+     "work": 489
+    },
+    {
+     "id": 792,
+     "work": 648
+    },
+    {
+     "id": 793,
+     "work": 277
+    },
+    {
+     "id": 794,
+     "work": 635
+    },
+    {
+     "id": 795,
+     "work": 232
+    },
+    {
+     "id": 796,
+     "work": 504
+    },
+    {
+     "id": 797,
+     "work": 486
+    }
+   ],
+   "lightsOutUtc": "2026-11-01T02:40:00Z"
+  },
+  {
+   "n": 21,
+   "start": 819,
+   "warmUp": 819,
+   "startUtc": "2026-11-01T06:10:00Z",
+   "stops": [
+    820,
+    821
+   ],
+   "stopCount": 2,
+   "breathers": [],
+   "end": "lightsOut",
+   "C": 822,
+   "stationEnd": null,
+   "durationRounds": 3,
+   "falseStart": false,
+   "rounds": [
+    {
+     "id": 819,
+     "work": 285
+    },
+    {
+     "id": 820,
+     "work": 609
+    },
+    {
+     "id": 821,
+     "work": 282
+    }
+   ],
+   "lightsOutUtc": "2026-11-01T06:40:00Z"
+  },
+  {
+   "n": 22,
+   "start": 909,
+   "warmUp": 909,
+   "startUtc": "2026-11-01T21:10:00Z",
+   "stops": [
+    910,
+    911,
+    912,
+    913,
+    914,
+    915,
+    916,
+    917,
+    918
+   ],
+   "stopCount": 9,
+   "breathers": [],
+   "end": "lightsOut",
+   "C": 919,
+   "stationEnd": null,
+   "durationRounds": 10,
+   "falseStart": false,
+   "rounds": [
+    {
+     "id": 909,
+     "work": 333
+    },
+    {
+     "id": 910,
+     "work": 629
+    },
+    {
+     "id": 911,
+     "work": 359
+    },
+    {
+     "id": 912,
+     "work": 600
+    },
+    {
+     "id": 913,
+     "work": 238
+    },
+    {
+     "id": 914,
+     "work": 626
+    },
+    {
+     "id": 915,
+     "work": 200
+    },
+    {
+     "id": 916,
+     "work": 568
+    },
+    {
+     "id": 917,
+     "work": 359
+    },
+    {
+     "id": 918,
+     "work": 452
+    }
+   ],
+   "lightsOutUtc": "2026-11-01T22:50:00Z"
+  },
+  {
+   "n": 23,
+   "start": 929,
+   "warmUp": 929,
+   "startUtc": "2026-11-02T00:30:00Z",
+   "stops": [
+    930,
+    931,
+    932,
+    933,
+    934,
+    935
+   ],
+   "stopCount": 6,
+   "breathers": [],
+   "end": "lightsOut",
+   "C": 936,
+   "stationEnd": null,
+   "durationRounds": 7,
+   "falseStart": false,
+   "rounds": [
+    {
+     "id": 929,
+     "work": 164
+    },
+    {
+     "id": 930,
+     "work": 475
+    },
+    {
+     "id": 931,
+     "work": 657
+    },
+    {
+     "id": 932,
+     "work": 209
+    },
+    {
+     "id": 933,
+     "work": 487
+    },
+    {
+     "id": 934,
+     "work": 466
+    },
+    {
+     "id": 935,
+     "work": 153
+    }
+   ],
+   "lightsOutUtc": "2026-11-02T01:40:00Z"
+  },
+  {
+   "n": 24,
+   "start": 948,
+   "warmUp": 948,
+   "startUtc": "2026-11-02T03:40:00Z",
+   "stops": [
+    949,
+    950,
+    951
+   ],
+   "stopCount": 3,
+   "breathers": [],
+   "end": "lightsOut",
+   "C": 952,
+   "stationEnd": null,
+   "durationRounds": 4,
+   "falseStart": false,
+   "rounds": [
+    {
+     "id": 948,
+     "work": 50
+    },
+    {
+     "id": 949,
+     "work": 667
+    },
+    {
+     "id": 950,
+     "work": 456
+    },
+    {
+     "id": 951,
+     "work": 277
+    }
+   ],
+   "lightsOutUtc": "2026-11-02T04:20:00Z"
+  },
+  {
+   "n": 25,
+   "start": 965,
+   "warmUp": 965,
+   "startUtc": "2026-11-02T06:30:00Z",
+   "stops": [
+    966
+   ],
+   "stopCount": 1,
+   "breathers": [],
+   "end": "lightsOut",
+   "C": 967,
+   "stationEnd": null,
+   "durationRounds": 2,
+   "falseStart": false,
+   "rounds": [
+    {
+     "id": 965,
+     "work": 261
+    },
+    {
+     "id": 966,
+     "work": 298
+    }
+   ],
+   "lightsOutUtc": "2026-11-02T06:50:00Z"
   }
  ]
 }

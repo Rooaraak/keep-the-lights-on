@@ -39,7 +39,7 @@ const ONLY = arg('--only') ? new Set(arg('--only').split(',')) : null;
 const t = H.createChecks();
 const { check } = t;
 const ROUNDS = JSON.parse(readFileSync(join(H.ROOT, 'data', 'rounds.json'), 'utf8'));
-const RIDES = JSON.parse(readFileSync(join(H.SITE, 'data', 'rides.json'), 'utf8')).rides;
+const RIDES = JSON.parse(readFileSync(H.PINNED_RIDES, 'utf8')).rides; // the 19 nights through round 780 the scenarios are built on
 const REAL = new Map(ROUNDS.active.map((a) => [a.id, a.work]));
 const realWorks = (from, to) => new Map([...REAL].filter(([id]) => id >= from && id <= to));
 const short = (a) => `${a.slice(0, 6)}…${a.slice(-4)}`;
@@ -374,6 +374,7 @@ async function S3(ctx) {
     const n2 = ref2.nights[1];
     check(n2 && n2.start === 78 && n2.C === 81 && n2.lit === 2 && n2.result === 'rolled' && n2.bonusOut === 300n * W, 'S3: the reference: night 2 lit 2 bulbs, nobody won, 300 SQK roll on', JSON.stringify(n2 && { s: n2.start, C: n2.C, lit: n2.lit, r: n2.result }));
     check(await P.waitText('#caption', /Bonus pot: 300 SQK\./), 'S3: the caption shows "Bonus pot: 300 SQK."', await P.text('#caption'));
+    check(await P.waitText('#potLine', /^300 SQK bonus pot waiting for the winners$/), 'S3: the bets panel: "300 SQK bonus pot waiting for the winners" (no bets for his next ride yet)', await P.text('#potLine'));
     const bo = await P.waitBoard((x) => /BLACKOUT/.test(x.msg));
     check(bo && bo.msg === 'BLACKOUT AFTER 2 BULBS * SWEET DREAMS * BONUS POT 300 ROLLS ON' && bo.pot === 300, 'S3: the board: "BLACKOUT AFTER 2 BULBS * SWEET DREAMS * BONUS POT 300 ROLLS ON"', bo && bo.msg);
     check(await P.waitText('#status', /Blackout after 2 bulbs\. Your bulb 5 stayed dark: nobody won, so your bet rolls into the bonus pot\./), 'S3: "Blackout after 2 bulbs. Your bulb 5 stayed dark: nobody won, so your bet rolls into the bonus pot."', await P.text('#status'));
@@ -392,8 +393,11 @@ async function S3(ctx) {
     await c.betDirect(p4, 3, 200n * W);
     await c.betDirect(p5, 8, 100n * W);
     await P.refresh({ bets: (await c.betCount()) });
-    const b3 = await P.waitBoard((x) => x.pot === 300);
-    check(b3 && b3.pot === 300 && /Bonus pot: 300 SQK/.test(await P.text('#caption')), 'S3: before night 3 the board shows the 300 SQK bonus pot', JSON.stringify(b3));
+    // tonight's pot: the three bets (100 + 200 + 100) and the 300 SQK bonus pot coming in
+    const b3 = await P.waitBoard((x) => x.pot === 700);
+    check(b3 && b3.pot === 700 && b3.potLabel === 'POT', 'S3: before night 3 the board\'s sign shows the whole pot, "POT 700" (3 bets + the 300 bonus pot)', JSON.stringify(b3));
+    check(await P.waitText('#caption', /Pot: 700 SQK from 3 bets, with the 300 SQK bonus pot\./), 'S3: the caption: "Pot: 700 SQK from 3 bets, with the 300 SQK bonus pot."', await P.text('#caption'));
+    check(await P.waitText('#potLine', /^700 SQK in the pot · 3 bets · 300 bonus$/), 'S3: the bets panel: "700 SQK in the pot · 3 bets · 300 bonus"', await P.text('#potLine'));
     for (let r = 85; r <= 105; r++) { await c.at(r + 1, 40); await c.record(r, works); ctx.state.wheel = works.has(r + 1) ? 300 : 0; }
     check(await P.refresh({ S: 105 }), 'S3: the page reads night 3');
     const ref3 = await reference(c);
@@ -408,6 +412,7 @@ async function S3(ctx) {
     check((await c.balance(me)) - before === 173n * W && wallet.sends.length === n0 + 1, 'S3: exactly 173 SQK arrived, in one wallet step, with nobody else playing since the bets');
     await P.refresh();
     check(!/Bonus pot/.test(await P.text('#caption')), 'S3: the bonus pot is gone from the caption', await P.text('#caption'));
+    check(!/Pot:|Bonus pot/.test(await P.text('#caption')) && (await P.text('#potLine')) === '', 'S3: no bets for his next ride and no bonus pot: no pot in the caption, the pot line is empty', await P.text('#potLine'));
     const outs = await Promise.all([...ref3.byBet.keys()].map(async (id) => [id, await c.outcome(id)]));
     await c.send(c.deployer, c.lights, C.encode.settle(500));
     const bad = [];
@@ -620,7 +625,7 @@ async function S5(ctx) {
     const b = await P.board();
     check(b && !/BETS NOW COUNT/.test(b.msg) && /ENDED/.test(b.msg) && !b.pick && !b.markers.length, 'S5: the board says the game has ended, with no bulb picked and no bet markers', JSON.stringify(b));
     check(!/waits for his next ride/.test(await P.text('#mine')), 'S5: your bets no longer say they wait for his next ride', await P.text('#mine'));
-    check(!/Bonus pot/.test(await P.text('#caption')) && !(b && b.pot), 'S5: no bonus pot is shown after the game ended', await P.text('#caption'));
+    check(!/Bonus pot|Pot:/.test(await P.text('#caption')) && !(b && b.pot) && (await P.text('#potLine')) === '', 'S5: no pot is shown after the game ended (caption, board sign, bets panel)', await P.text('#caption'));
     check(!(await P.visible('#pickRow')) && /^Game ended$/.test(await P.text('#youState')) && new RegExp(`^${sqkText(due)} SQK$`).test(await P.text('#money')), 'S5: the dashboard shows "Game ended" and what you can collect, no bulb picker', `${await P.text('#youState')} / ${await P.text('#money')}`);
     check(/^Bets waiting when the game ended$/.test(await P.text('#playersTitle')), 'S5: the list of bets is titled "Bets waiting when the game ended"', await P.text('#playersTitle'));
     await dashOk(P, 'S5 after the game ended');
