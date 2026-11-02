@@ -103,6 +103,8 @@ async function head() {
 async function lagBlock() { const n = await head(); if (!st.lag) return n; let b = n; while (b > 0 && (seen.get(b) ?? 0) > Date.now() - st.lag) b--; return b; }
 async function one(q) {
   let { method, params = [] } = q;
+  // a node that keeps only recent logs (publicnode keeps about two days): every log query is refused
+  if (st.prunedLogs && method === 'eth_getLogs') return { jsonrpc: '2.0', id: q.id, error: { code: 4444, message: 'pruned history unavailable' } };
   const lb = await lagBlock(), n = headN;
   // a lagging node answers 'latest' from its own head, lb, even while it hasn't seen a newer block (the newest block
   // is looked up at most every 200 ms, and a block mined in that time must not show early)
@@ -417,6 +419,15 @@ try {
   d = dash(pg);
   ok(/^Your bulb 20 stayed dark on his last ride: you lost your 100 SQK\. To bet on his next ride, pick a bulb\.$/.test(d.status) && d.money === '−100 SQK' && d.ml === 'Last ride', 'two hours later: "Your bulb 20 stayed dark on his last ride: you lost your 100 SQK." and still "Last ride −100 SQK"', show(d));
   ok(pg.$('meter').hidden, 'he is asleep: no countdown under the board', show(meter(pg)));
+  // the same wallet on a page whose node pruned the logs: its bets are read straight from the game instead
+  {
+    st.prunedLogs = true;
+    const pgP = startPage(walletFor(p7).provider);
+    await connect(pgP);
+    ok(await pgP.until(() => /stayed dark on his last ride/.test(pgP.t('status')), 60_000), 'a node without old logs: the lost bet is still found and shown ("…stayed dark on his last ride…")', show({ status: pgP.t('status'), startIdx: pgP.live.debug().state.startIdx, scanned: pgP.live.debug().state.scannedOld }));
+    pgP.stop();
+    st.prunedLogs = false;
+  }
   ok(!JARGON.test(d.status + d.you + d.youSub + d.ml + d.ms), 'plain words');
   pg.live.plus();
   await sleep(400);

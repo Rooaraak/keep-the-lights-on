@@ -142,6 +142,28 @@ eq(threw, 4, 'bad addresses and amounts are refused, not encoded');
   ok(a.work === null && d.work === null && C.readWheel({ measurement: { cumulativeWorkUnits: 'x' } }).work === null, 'no counter (or a bad one): work is null');
 }
 
+// ---------- gas for a bet or a collect: the estimate plus a quarter, never below the fixed limit ----------
+{
+  const fake = (est) => ({ rpc: { request: async (m) => { if (m !== 'eth_estimateGas') throw new Error('unexpected ' + m); if (est instanceof Error) throw est; return '0x' + est.toString(16); } } });
+  eq(await C.sendGas(fake(800_000), '0x1', '0x2', '0x', C.GAS.bet), C.GAS.bet, 'gas: a small estimate keeps the fixed bet limit (1,500,000)');
+  eq(await C.sendGas(fake(2_560_000), '0x1', '0x2', '0x', C.GAS.bet), 3_200_000, 'gas: a returning bettor with rounds to read (2.56M estimate) goes out with 3.2M, not 1.5M');
+  eq(await C.sendGas(fake(1_077_000), '0x1', '0x2', '0x', 1_030_000), 1_346_250, 'gas: a late collect (1.077M estimate) goes out above its 1.03M floor');
+  eq(await C.sendGas(fake(new Error('execution reverted')), '0x1', '0x2', '0x', C.GAS.bet), C.GAS.bet, 'gas: no estimate (it would revert): the fixed limit, and the simulation explains why');
+  eq(await C.sendGas(fake(20_000_000), '0x1', '0x2', '0x', C.GAS.bet), 15_000_000, 'gas: capped at 15M');
+}
+// ---------- a node that pruned old logs: the bet lookup gives up at once (the page then reads the bets directly) ----------
+{
+  let logCalls = 0;
+  const fetchFn = async (u, init) => {
+    const b = JSON.parse(init.body);
+    const one = (q) => (q.method === 'eth_blockNumber' ? { jsonrpc: '2.0', id: q.id, result: '0xb80000' } : (logCalls++, { jsonrpc: '2.0', id: q.id, error: { code: 4444, message: 'pruned history unavailable' } }));
+    return { status: 200, json: async () => (Array.isArray(b) ? b.map(one) : one(b)) };
+  };
+  const chain = C.createChain({ rpc: ['https://a.example'], squeekCore: '0x980b4424c007caf7a1f3670b48c8eaef7ebc3d44', lightsOn: '0x262c88c4eedf3d543d2523f87fa47701ac429844', sqk: '0x5501e1fa81be1c3f49225fa7668da0245d07db60', deployBlock: 12048847 }, { fetchFn });
+  const r = await chain.lights.betIdsOf('0x0154c8576de532fbe8f634a45ec5b4f25a9044c1');
+  ok(r === null && logCalls === 1, `pruned logs: betIdsOf returns null after one try (${logCalls} log call), not after halving the range again and again`);
+}
+
 // ---------- optional: the real SqueekCore, gently ----------
 if (process.argv.includes('--live')) {
   const chain = C.createChain({ rpc: ['https://ethereum-sepolia-rpc.publicnode.com', 'https://sepolia.gateway.tenderly.co'], squeekCore: '0x980b4424c007caf7a1f3670b48c8eaef7ebc3d44' });
