@@ -18,7 +18,8 @@
 //   - after the blackout the lights go out on the board, then it shows his next ride (no bulb lit, so a tap picks
 //     the bulb it shows), and the sign still says how far he got
 //   - a wallet with no test ETH: the page says it needs a little (free) test ETH for the fee, with a link, and
-//     doesn't ask the wallet for anything; with ETH but no SQK in the rehearsal: "Tap Get 1,000 practice SQK below."
+//     doesn't ask the wallet for anything (the button says "Get test ETH first"); with ETH but no SQK in the rehearsal the
+//     button says "Get practice SQK first" and gets them
 //   - a phone with no wallet: the button says "How to bet on a phone"
 // and the bug bash round 2b fixes:
 //   - a win not yet collected never hides the bet controls: the picker stays, picking a bulb turns the button into
@@ -335,7 +336,7 @@ try {
   await pg.until(() => /Connect wallet/.test(pg.t('act')));
   await pg.live.act(); await pg.until(() => /Switch to/.test(pg.t('act')));
   await pg.live.act();
-  ok(await pg.until(() => /^Bet 100 SQK on bulb/.test(pg.t('act')) && /test ETH/.test(pg.t('status')), 30_000), 'connected with no test ETH: the sentence under the button says so', show(dash(pg)));
+  ok(await pg.until(() => pg.t('act') === 'Get test ETH first' && /test ETH/.test(pg.t('status')), 30_000), 'connected with no test ETH: the button says "Get test ETH first" and the sentence under it says where', show(dash(pg)));
   let links = pg.$('status').links;
   ok(/^Your wallet needs a little test ETH to pay the network fee\. Test ETH is free from a faucet\. Then tap Get 1,000 practice SQK below\./.test(pg.t('status')) && links.length === 1 && links[0].href === FAUCET && links[0].textContent === 'Get free test ETH', `"${pg.t('status')}", with a link to the faucet`, show(links.map((a) => [a.href, a.textContent])));
   ok(pg.t('moneySub') === 'practice SQK, no real money' && /practice SQK, no real money/.test(pg.t('eyebrow')), 'the rehearsal: "practice SQK, no real money" under the number and in the eyebrow', `${pg.t('moneySub')} / ${pg.t('eyebrow')}`);
@@ -349,13 +350,15 @@ try {
   await c.setEth(p6, 1000n * W);
   pg.live.refresh();
   ok(await pg.until(() => !/test ETH/.test(pg.t('status')), 30_000), 'with test ETH the hint goes away', pg.t('status'));
+  ok(await pg.until(() => pg.t('act') === 'Get practice SQK first', 10_000), 'no SQK yet: the button says "Get practice SQK first"', pg.t('act'));
+  E.w.refuse = 1;
   await pg.live.act();
   await sleep(300);
-  ok(pg.t('status') === 'Not enough SQK: you have 0, this bet needs 100. Tap Get 1,000 practice SQK below.' && E.w.sends.length === 0, 'no SQK yet: "Not enough SQK: you have 0, this bet needs 100. Tap Get 1,000 practice SQK below."', pg.t('status'));
+  ok(pg.t('status') === 'You said no in your wallet, so nothing was sent.' && E.w.sends.length === 1 && E.w.sends[0].refused && E.w.sends[0].data === '0xde5f72fd', 'the button asks the wallet for the practice SQK (faucet), and saying no: "You said no in your wallet, so nothing was sent."', show({ status: pg.t('status'), sends: E.w.sends.map((x) => x.data) }));
   E.w.refuse = 1;
   await pg.$('faucet').listeners.click[0]();
   await sleep(300);
-  ok(pg.t('status') === 'You said no in your wallet, so nothing was sent.' && E.w.sends.length === 1 && E.w.sends[0].refused, 'the practice SQK button, then saying no in the wallet: "You said no in your wallet, so nothing was sent."', pg.t('status'));
+  ok(pg.t('status') === 'You said no in your wallet, so nothing was sent.' && E.w.sends.length === 2 && E.w.sends[1].refused, 'the practice SQK button, then saying no in the wallet: "You said no in your wallet, so nothing was sent."', pg.t('status'));
   pg.stop();
   }
   if (part('lost')) {

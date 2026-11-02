@@ -84,6 +84,8 @@ export function createLive({ $, setText, setStatus, config, base, onRides, provi
     const v = BigInt(t);
     return v >= 10n && v <= 10_000n ? v * W : null;
   };
+  // the wallet holds less SQK than the bet chosen (known only once its balance has been read)
+  const lacksSqk = () => { const a = amountWei(); return !!(a && L.balance != null && L.balance < a); };
 
   // ---------------------------------------------------------------- reading
 
@@ -456,6 +458,10 @@ export function createLive({ $, setText, setStatus, config, base, onRides, provi
       else if (a === 'placed') { label = 'Bet placed'; off = true; }
       else if (a === 'none') { label = 'No bets right now'; off = true; }
       else if (a === 'amount') { label = 'Pick a bet'; off = true; }
+      // a new player says first what is missing (the sentence under the button says where to get it); on the
+      // rehearsal the button gets the practice SQK itself
+      else if (L.eth === 0n) label = 'Get test ETH first';
+      else if (lacksSqk()) label = config.practice ? 'Get practice SQK first' : 'Not enough SQK';
       else label = `Bet ${sqkText(amountWei())} SQK on bulb ${pick}`;
     }
     if (btn.disabled !== off) btn.disabled = off;
@@ -808,6 +814,8 @@ export function createLive({ $, setText, setStatus, config, base, onRides, provi
       const a = want === 'collect' ? (d.collectIds.length ? 'collect' : null) : mainAction(d);
       if (a === 'collect') return await doCollect(d);
       if (a !== 'bet' && a !== 'amount') return;
+      // "Get practice SQK first": the button does what it says (the practice tap needs the page free)
+      if (a === 'bet' && config.practice && L.eth !== 0n && lacksSqk()) { L.busy = null; return await getPractice(); }
       await doBet(d);
     } catch (e) {
       const x = C.explain(e);

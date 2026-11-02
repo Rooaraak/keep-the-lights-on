@@ -128,7 +128,7 @@ async function S1(ctx) {
     check(/^Pick a bet$/.test(await P.text('#act')) && await P.disabled('#act'), 'S1: a 20,000 SQK bet: the button is off', await P.text('#act'));
     check(/10 (to|and) 10,000 SQK/.test(await P.text('#status')), 'S1: a 20,000 SQK bet: the page says bets are 10 to 10,000 SQK', await P.text('#status'));
     await P.typeAmount(5000);
-    check(/^Bet 5,000 SQK on bulb/.test(await P.text('#act')), 'S1: 5,000 SQK is a valid bet', await P.text('#act'));
+    check(await P.text('#act') === 'Not enough SQK' && !(await P.disabled('#act')), 'S1: 5,000 SQK with 1,000 in the wallet: the button says "Not enough SQK"', await P.text('#act'));
     await P.click('#act');
     check(await P.waitText('#status', /Not enough SQK: you have 1,000, this bet needs 5,000\./), 'S1: more than you have: "Not enough SQK: you have 1,000, this bet needs 5,000."', await P.text('#status'));
     check(wallet.sends.length === sends0, 'S1: nothing was sent to the wallet for any of these');
