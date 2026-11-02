@@ -25,9 +25,9 @@
     </div>
     <h1 id="title" class="sr-only">Keep the Lights On</h1>
     <div class="sign"><canvas id="sign" aria-hidden="true"></canvas></div>
-    <div class="cam"><canvas id="cam" role="img" aria-label="Hamster cam: Squeektoshi in his wheel, and the big bulb his running powers"></canvas><span class="cam-tag" id="camTag" data-mode="live" aria-hidden="true">Live</span></div>
-    <p class="lede">Bet on how many bulbs Squeektoshi lights tonight.</p>
   </header>
+
+  <main class="main">
 
   <section class="panel" aria-label="The game">
     <p class="eyebrow"><span class="dot" id="liveDot" aria-hidden="true"></span><span id="eyebrow">Squeekchain · test network</span></p>
@@ -128,10 +128,18 @@
     </div>
   </section>
 
-  <section class="panel" id="playersPanel">
-    <h2 id="playersTitle">Tonight's bets</h2>
-    <div class="riders" id="riders"></div>
-  </section>
+  </main>
+
+  <aside class="side">
+    <div class="stage">
+      <div class="cam"><canvas id="cam" role="img" aria-label="Hamster cam: Squeektoshi in his wheel, and the big bulb his running powers"></canvas><span class="cam-tag" id="camTag" data-mode="live" aria-hidden="true">Live</span></div>
+      <p class="lede">Bet on how many bulbs Squeektoshi lights tonight.</p>
+    </div>
+    <section class="panel" id="playersPanel">
+      <h2 id="playersTitle">Tonight's bets</h2>
+      <div class="riders" id="riders"></div>
+    </section>
+  </aside>
 
   <footer class="foot" id="foot">
     <p>Keep the Lights On runs on Sepolia (test network) and follows SqueekCore's records of Squeektoshi's wheel.</p>
