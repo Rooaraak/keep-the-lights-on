@@ -235,6 +235,50 @@ async function replayScenario(browser, opts, tag) {
   } finally { await page.close(); }
 }
 
+// The board's pages: a 9-bulb night replayed at 4x. The row starts on page 1 (bulbs 1-8 on a wide board, 1-6 on a
+// narrow one), turns to page 2 once he keeps running after its last bulb, and after the blackout the lights have gone
+// out back across the pages, so the row ends on page 1 again.
+async function pagingScenario(browser, opts, tag) {
+  const { page, errors } = await openPage(browser, opts, 'asleep', '#past');
+  try {
+    await page.waitForFunction(() => window.lightsPage && window.lightsPage.mode() === 'replay', { timeout: 10_000 });
+    const v = await page.$$eval('#ride option', (os) => (os.find((o) => / 9 bulbs/.test(o.textContent)) || {}).value);
+    check(v != null, `${tag} pages: a 9-bulb night to replay`);
+    await page.select('#ride', v);
+    await page.click('#sp4');
+    const P = await page.evaluate(() => (document.getElementById('board').parentElement.clientWidth >= 760 ? 8 : 6));
+    const pt = (k) => page.evaluate((n) => window.lightsPage.bulbPoint(n, 0), k);
+    const litNow = () => page.$eval('#board', (e) => Number((e.getAttribute('aria-label').match(/(\d+) lit/) || [])[1] || 0));
+    await sleep(400);
+    check(!!(await pt(1)) && !!(await pt(P)) && !(await pt(P + 1)), `${tag} pages: the row starts on page 1 (bulbs 1-${P}); bulb ${P + 1} is not on it`);
+    await page.waitForFunction((n) => Number((document.getElementById('board').getAttribute('aria-label').match(/(\d+) lit/) || [])[1] || 0) >= n, { timeout: 40_000, polling: 100 }, P + 1).catch(() => {});
+    await sleep(1000);
+    check(!!(await pt(P + 1)) && !(await pt(1)), `${tag} pages: after bulb ${P} the row turned to page 2 (bulb ${P + 1} on the board, bulb 1 not)`, String(await litNow()));
+    await page.waitForFunction(() => !document.getElementById('results').hidden, { timeout: 40_000 }).catch(() => {});
+    await sleep(4000);
+    check(!!(await pt(1)) && !(await pt(P + 1)), `${tag} pages: after the blackout the lights went out back to page 1`, String(await litNow()));
+    check(errors.length === 0, `${tag} pages: no console errors`, errors.join(' | '));
+  } finally { await page.close(); }
+}
+
+// Wide screens: two columns (the hamster cam beside the board), and the bet row on the first screen, also on a short
+// laptop screen (the board's height is capped there).
+async function wideScenario(browser, opts, tag) {
+  const { page, errors } = await openPage(browser, opts, 'asleep');
+  try {
+    await waitLoaded(page);
+    await sleep(600);
+    const m = await page.evaluate(() => {
+      const r = (el) => el.getBoundingClientRect(), board = r(document.getElementById('board')), cam = r(document.getElementById('cam'));
+      return { boardRight: board.right, boardH: board.height, camLeft: cam.left, dashBottom: r(document.querySelector('.dash')).bottom, h: innerHeight };
+    });
+    check(m.camLeft > m.boardRight, `${tag}: two columns, the hamster cam beside the board`, JSON.stringify(m));
+    check(m.dashBottom <= m.h, `${tag}: the bet row is on the first screen (${Math.round(m.dashBottom)} <= ${m.h})`, JSON.stringify(m));
+    await noSideScroll(page, opts.width, tag);
+    check(errors.length === 0, `${tag}: no console errors`, errors.join(' | '));
+  } finally { await page.close(); }
+}
+
 // --real: one page on the real config.json, reading the real Sepolia RPC and status API (a handful of calls).
 async function realPass(browser) {
   const page = await browser.newPage();
@@ -274,8 +318,10 @@ async function realPass(browser) {
     }
     const phone = { width: 360, height: 740, dark: false, reduced: true };
     const desk = { width: 1280, height: 900, dark: true, reduced: false };
-    await withChrome('phone 360 light reduced-motion', phone, async (b) => { await liveScenarios(b, phone, 'phone'); await replayScenario(b, phone, 'phone'); });
-    await withChrome('desktop 1280 dark', desk, async (b) => { await liveScenarios(b, desk, 'desktop'); await replayScenario(b, desk, 'desktop'); });
+    await withChrome('phone 360 light reduced-motion', phone, async (b) => { await liveScenarios(b, phone, 'phone'); await replayScenario(b, phone, 'phone'); await pagingScenario(b, phone, 'phone'); });
+    await withChrome('desktop 1280 dark', desk, async (b) => { await liveScenarios(b, desk, 'desktop'); await replayScenario(b, desk, 'desktop'); await pagingScenario(b, desk, 'desktop'); });
+    const laptop = { width: 1366, height: 768, dark: true, reduced: false }, big = { width: 1920, height: 1080, dark: false, reduced: false };
+    await withChrome('wide 1366x768 and 1920x1080', laptop, async (b) => { await wideScenario(b, laptop, 'wide 1366x768'); await wideScenario(b, big, 'wide 1920x1080 light'); });
   } catch (e) {
     failed++; console.log(`FAIL ${e.stack || e}`);
   } finally { stop(); }

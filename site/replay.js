@@ -248,7 +248,7 @@ export function createReplay({ $, setText, setStatus }) {
     if (!S.over) updateDash(Math.max(0, r));
     const lit = S.t < 0 ? 0 : S.over ? S.result.lit : litBy(r - 1);
     const resting = S.t < 0 || (r >= 1 && !active(r)) || S.over, work = r >= 0 && r < L ? S.ride.w[r] : 0;
-    const outP = S.over ? (time - S.outAt) / 1.6 : null; // 0 -> 1: bulbs pop off from the last one down
+    const outP = S.over ? (time - S.outAt) / Board.outSeconds(S.result.lit) : null; // 0 -> 1: bulbs pop off from the last one down
     const pot = S.over ? (S.result.result === 'rolled' ? S.result.bonusOut : 0n) : S.potIn, potN = pot > 0n ? Math.round(sqk(pot)) : 0;
     const at = new Map();
     for (const p of bets()) { const a = at.get(p.bulb) || { bulb: p.bulb, me: false, others: 0 }; if (p.me) a.me = true; else a.others++; at.set(p.bulb, a); }

@@ -223,11 +223,15 @@ async function S2(ctx) {
       const b = await P.waitBoard((x) => (ref.open ? x.lit === want.lit : true));
       seen.push(`${r}:${b && b.lit}${b && b.flicker ? '~' : ''}`);
       if (r === 44) {
-        // (your bet from S1 was sent before he left: it is on the ride he just started, not "his next ride")
+        // (your bet from S1 was sent before he left: it is on the ride he just started, not "his next ride"). The board
+        // shows 0 lit both before and after the departure is read, so wait for the words, not the board.
+        await P.waitText('#status', /He just got on the wheel|^Your bet is on the ride he just started\.$|^Bet placed/);
+        await P.waitText('#playersTitle', /^This ride's bets$/);
         const st44 = await P.text('#status');
         check(/He just got on the wheel\. You can bet on bulb 2 or higher\./.test(st44) || /^Your bet is on the ride he just started\.$/.test(st44) || /^Bet placed/.test(st44), 'S2: round 45 starts with the wheel turning: "He just got on the wheel" (with your bet from before: "Your bet is on the ride he just started.")', st44);
         check(!/asleep|next ride/.test(st44) && /^This ride's bets$/.test(await P.text('#playersTitle')), 'S2: ... not "asleep" or "his next ride"; the list is "This ride\'s bets"', `${st44} / ${await P.text('#playersTitle')}`);
-        check(b && b.msg === 'HE IS ON THE WHEEL * LIGHTS ON SOON', 'S2: the board: "HE IS ON THE WHEEL * LIGHTS ON SOON"', b && b.msg);
+        const b44 = await P.waitBoard((x) => x.msg === 'HE IS ON THE WHEEL * LIGHTS ON SOON');
+        check(b44 && b44.msg === 'HE IS ON THE WHEEL * LIGHTS ON SOON', 'S2: the board: "HE IS ON THE WHEEL * LIGHTS ON SOON"', b44 && b44.msg);
         // two players bet in the departure round: bulb 2 counts, bulb 1 (lights in the next round) is given back
         ctx.ids.p5 = (await c.betDirect(p5, 2, 100n * W)).betId;
         ctx.ids.p6 = (await c.betDirect(p6, 1, 100n * W)).betId;

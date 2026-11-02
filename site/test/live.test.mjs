@@ -212,12 +212,12 @@ try {
   // ---------------------------------------------------------------- 3. his ride: the line above the button
   pg.stop();
   pg = startPage(A.provider);
-  await pg.until(() => pg.t('act') === 'Bet placed', 60_000);
+  ok(await pg.until(() => pg.t('act') === 'Bet placed', 60_000), 'waited for "Bet placed" on the button', show(dash(pg)));
   st.wheel = 480;
   await c.at(50, 50); await c.record(49, works(45, 49));
   await sleep(LAG + 300);
   pg.live.refresh();
-  await pg.until(() => pg.live.debug().state.S === 49 && !pg.live.debug().state.running.core, 60_000);
+  ok(await pg.until(() => pg.live.debug().state.S === 49 && !pg.live.debug().state.running.core, 60_000), 'waited for the page read round 49', show(dash(pg)));
   await sleep(600);
   d = dash(pg);
   const lit49 = pg.live.debug().derived.lit;
@@ -230,13 +230,13 @@ try {
   await c.at(55, 50); await c.record(54, works(50, 54));
   await sleep(LAG + 300);
   pg.live.refresh();
-  await pg.until(() => pg.live.debug().state.S === 54 && !pg.live.debug().state.running.core && !pg.live.debug().state.running.wheel, 60_000);
+  ok(await pg.until(() => pg.live.debug().state.S === 54 && !pg.live.debug().state.running.core && !pg.live.debug().state.running.wheel, 60_000), 'waited for the page read round 54 (core and wheel)', show(dash(pg)));
   await sleep(400);
   let v = pg.frames.last;
   ok(v.lit === 8 && v.msg === 'HE IS BACK ON THE WHEEL * NEXT: BULB 9' && !v.flicker && !v.resting, 'a quiet round is recorded but the wheel turns again (the cam shows him running): "HE IS BACK ON THE WHEEL * NEXT: BULB 9", no flicker', show(v));
   st.wheel = 0;
   pg.live.refresh();
-  await pg.until(() => pg.frames.last.flicker, 20_000);
+  ok(await pg.until(() => pg.frames.last.flicker, 20_000), 'waited for the board flickers (a break)', show(dash(pg)));
   v = pg.frames.last;
   ok(v.msg === 'LIGHTS FLICKER ... IS HE ASLEEP?' && v.flicker && v.resting, 'the wheel stops too: "LIGHTS FLICKER ... IS HE ASLEEP?", the bulbs flicker', show(v));
   st.wheel = 480;
@@ -333,8 +333,8 @@ try {
   const E = walletFor(p6);
   if (pg) pg.stop();
   pg = startPage(E.provider, { ...config, practice: true, ethFaucet: FAUCET });
-  await pg.until(() => /Connect wallet/.test(pg.t('act')));
-  await pg.live.act(); await pg.until(() => /Switch to/.test(pg.t('act')));
+  ok(await pg.until(() => /Connect wallet/.test(pg.t('act'))), 'waited for "Connect wallet"', show(dash(pg)));
+  await pg.live.act(); ok(await pg.until(() => /Switch to/.test(pg.t('act'))), 'waited for "Switch to …" after connecting', show(dash(pg)));
   await pg.live.act();
   ok(await pg.until(() => pg.t('act') === 'Get test ETH first' && /test ETH/.test(pg.t('status')), 30_000), 'connected with no test ETH: the button says "Get test ETH first" and the sentence under it says where', show(dash(pg)));
   let links = pg.$('status').links;
@@ -365,8 +365,8 @@ try {
     const Z = walletFor(c.accounts[11]);
     pg.stop();
     pg = startPage(Z.provider, { ...config, practiceUrl: '?config=rehearsal.json' });
-    await pg.until(() => /Connect wallet/.test(pg.t('act')));
-    await pg.live.act(); await pg.until(() => /Switch to/.test(pg.t('act')));
+    ok(await pg.until(() => /Connect wallet/.test(pg.t('act'))), 'waited for "Connect wallet"', show(dash(pg)));
+    await pg.live.act(); ok(await pg.until(() => /Switch to/.test(pg.t('act'))), 'waited for "Switch to …" after connecting', show(dash(pg)));
     await pg.live.act();
     ok(await pg.until(() => /no SQK yet/.test(pg.t('status')), 30_000), 'the real game, a wallet with no SQK: the sentence under the button says so', show(dash(pg)));
     const zl = pg.$('status').links;
@@ -405,7 +405,7 @@ try {
   await c.at(86, 30); await c.record(85);
   await sleep(LAG + 300);
   pg.live.refresh();
-  await pg.until(() => pg.live.debug().state.S === 85 && !pg.live.debug().state.running.core, 60_000);
+  ok(await pg.until(() => pg.live.debug().state.S === 85 && !pg.live.debug().state.running.core, 60_000), 'waited for the page read round 85', show(dash(pg)));
   await sleep(400);
   d = dash(pg);
   ok(/^Your bulb 20 stayed dark on his last ride: you lost your 100 SQK\. To bet on his next ride, pick a bulb\.$/.test(d.status) && d.money === '−100 SQK' && d.ml === 'Last ride', 'two hours later: "Your bulb 20 stayed dark on his last ride: you lost your 100 SQK." and still "Last ride −100 SQK"', show(d));
@@ -461,7 +461,7 @@ try {
   await sleep(LAG + 300);
   pg = startPage(PA.provider);
   await connect(pg);
-  await pg.until(() => pg.live.debug().state.S === D + 4 && !pg.live.debug().state.running.core, 60_000);
+  ok(await pg.until(() => pg.live.debug().state.S === D + 4 && !pg.live.debug().state.running.core, 60_000), 'waited for the page read round D + 4', show(dash(pg)));
   await sleep(400);
   let d = dash(pg);
   // the round in progress is quiet so far: tonight if he runs again, else his next ride
@@ -539,7 +539,7 @@ try {
   pg.stop();
   Object.defineProperty(globalThis, 'navigator', { value: { userAgent: 'Mozilla/5.0 (X11; Linux x86_64)' }, configurable: true });
   pg = startPage(undefined);
-  await pg.until(() => /Connect wallet/.test(pg.t('act')));
+  ok(await pg.until(() => /Connect wallet/.test(pg.t('act'))), 'waited for "Connect wallet"', show(dash(pg)));
   await pg.live.act();
   await sleep(300);
   ok(/^No wallet found in this browser\. To bet, add a wallet such as MetaMask or Rabby/.test(pg.t('status')), 'a computer with no wallet: add one, then open the page again', pg.t('status'));

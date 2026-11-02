@@ -108,6 +108,7 @@ async function boot() {
 
   let resizeT = 0;
   new ResizeObserver(() => { clearTimeout(resizeT); resizeT = setTimeout(Board.setup, 120); }).observe($('board').parentElement);
+  addEventListener('resize', () => { clearTimeout(resizeT); resizeT = setTimeout(Board.setup, 120); });   // a window only taller or shorter (the board's height cap)
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', Board.setup);
   new MutationObserver(Board.setup).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
 

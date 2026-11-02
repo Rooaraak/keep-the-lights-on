@@ -756,11 +756,11 @@ export function createLive({ $, setText, setStatus, config, base, onRides, provi
     if (openStart != null) L.outAt = null;
     L.lastOpen = openStart; L.lastLit = d.lit;
 
-    // After a blackout the lights go out on the board (1.6 s, the last bulb first; at once if the page opened after
+    // After a blackout the lights go out on the board (1.6 s, longer over several pages, the last bulb first; at once if the page opened after
     // it), then the board shows his next ride: no bulb lit, scrolled to bulb 1, with the bets for it and your pick.
     // Only the sign still says how far he got.
     const justOut = !d.open && d.sinceOut != null && d.sinceOut <= 6 && d.last;
-    const outP = justOut && L.outAt != null ? (time - L.outAt) / 1.6 : null;
+    const outP = justOut && L.outAt != null ? (time - L.outAt) / Board.outSeconds(d.last.lit) : null;
     const goingOut = outP != null && outP < 1;
     const lit = d.open ? d.lit : goingOut ? d.last.lit : 0;
     L.boardLit = lit; // a tap on the board is read for the same view as this frame
