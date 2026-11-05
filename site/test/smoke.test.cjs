@@ -309,7 +309,7 @@ async function realPass(browser) {
   await sleep(4000); // let the wheel's reading arrive
   const d = ok ? await derived(page) : null;
   const st = ok ? await page.evaluate(() => ({ rides: window.lightsPage.live.debug().state.view.rides.length, wheel: window.lightsPage.live.debug().state.wheel })) : null;
-  check(ok && d.S >= 842 && st.rides >= 21, `real Sepolia: the page read SqueekCore through round ${d && d.S}, ${st && st.rides} nights`, JSON.stringify(st));
+  check(ok && d.S >= 258 && st.rides >= 0, `real Sepolia: the page read the NEW SqueekCore (redeployed 11-05, rounds restart at 1) through round ${d && d.S}, ${st && st.rides} nights since round 258`, JSON.stringify(st));
   check(ok && st.wheel !== null, `real status API: wheel reading ${st && JSON.stringify(st.wheel)}`);
   console.log(`     caption: ${await text(page, '#caption')}`);
   console.log(`     status:  ${await text(page, '#status')}`);

@@ -19,9 +19,12 @@ off-chain oracle: the contract reads the rounds itself, and anyone can settle a 
 - **Two-minute tour.** Open the page and tap **Practice (free)**, then **Get 1,000 practice SQK**, pick a bulb and bet.
   Your bet shows on the LED board and in tonight's bets, with the pot. Tap **Watch a past night** to see a whole ride,
   from the first bulb to the blackout, in about a minute.
-- **The deployed contract is this code.** The game at `0x262c88c4…9844` was built and deployed through IMD (launch
-  2876). Its runtime bytecode equals a compile of `src/LightsOn.sol` from this repository, apart from the immutables
-  (core, token, genesis time, station, start round). You can check that with `forge build` and `cast code`.
+- **Moved to Squeekchain's new core on 5 Nov.** Squeekchain replaced SqueekCore on 4 Nov; the old core stopped settling
+  at round 1339, so the game was redeployed unchanged on the new core: `0x0d8C44AF…1823` (block 12070221). The first copy,
+  `0x262c88c4…9844`, was built and deployed through IMD (launch 2876) on the old core and never took a bet.
+- **The deployed contract is this code.** Both copies' runtime bytecode equals a compile of `src/LightsOn.sol` from this
+  repository, apart from the immutables (core, token, genesis time, station, start round). You can check that with
+  `forge build` and `cast code`.
 - **Review findings are kept as tests.** IMD's launch review raised two findings. The medium one (a stall of the
   unreadable kind could be measured from too early a round) was fixed before deployment with `readThrough`, and
   `test/audit_review/` proves the fix. The low one (a 7-day void can fall in a round he departs in) is kept by design:
@@ -90,11 +93,12 @@ node site/test/e2e.test.mjs
 
 | | Address |
 |---|---|
-| SqueekCore | `0x980b4424c007caf7a1f3670b48c8eaef7ebc3d44` |
-| SQK | `0x5501e1fa81be1c3f49225fa7668da0245d07db60` |
-| Rehearsal game | `0xFe3D58bb18F89DCe0F13a0E83Ca7A9a7E458F49F` |
-| Rehearsal practice token | `0xfC812E27a816e083b3313b6DECDF15dEa9d8896e` |
-| **The game** | `0x262c88c4eedf3d543d2523f87fa47701ac429844` (from block 12048847; deployed through IMD, launch 2876) |
+| SqueekCore (new, since 4 Nov) | `0xfd6c166d4b8e2962e65746a13e5a0797cd4de0c4` (genesis 1793735400, 600 s rounds) |
+| SQK | `0xd78a3956cf63164d1fa1c622ad3c66623162fa1e` |
+| **The game** | `0x0d8C44AF26De81F2749cf0FA67b45FaBFC251823` (from block 12070221, start round 258) |
+| Practice game | `0x7c1b0f0e051645B157356c583a3eb4c41b63Dfab` (from block 12070225) |
+| Practice token | `0xfC812E27a816e083b3313b6DECDF15dEa9d8896e` |
+| First copy (old core `0x980b…3d44`, no bets) | `0x262c88c4eedf3d543d2523f87fa47701ac429844` (deployed through IMD, launch 2876) |
 
 ## Safety
 

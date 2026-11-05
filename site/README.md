@@ -96,9 +96,9 @@ is one higher than it will be a minute later. Near the end of a round the bet al
 
 ## Contracts (Sepolia)
 
-- SqueekCore: [0x980b4424c007caf7a1f3670b48c8eaef7ebc3d44](https://sepolia.etherscan.io/address/0x980b4424c007caf7a1f3670b48c8eaef7ebc3d44): `state()`, `roundPage(after, through, max ≤ 16)`
-- SQK: [0x5501e1fa81be1c3f49225fa7668da0245d07db60](https://sepolia.etherscan.io/address/0x5501e1fa81be1c3f49225fa7668da0245d07db60)
-- LightsOn: [0x262c88c4eedf3d543d2523f87fa47701ac429844](https://sepolia.etherscan.io/address/0x262c88c4eedf3d543d2523f87fa47701ac429844) from block 12048847, deployed through IMD (launch 2876) (`src/LightsOn.sol`, `docs/lights-contract.md`)
+- SqueekCore (new since 4 Nov): [0xfd6c166d4b8e2962e65746a13e5a0797cd4de0c4](https://sepolia.etherscan.io/address/0xfd6c166d4b8e2962e65746a13e5a0797cd4de0c4): `state()`, `roundPage(after, through, max ≤ 16)`, genesis 1793735400
+- SQK: [0xd78a3956cf63164d1fa1c622ad3c66623162fa1e](https://sepolia.etherscan.io/address/0xd78a3956cf63164d1fa1c622ad3c66623162fa1e)
+- LightsOn: [0x0d8C44AF26De81F2749cf0FA67b45FaBFC251823](https://sepolia.etherscan.io/address/0x0d8C44AF26De81F2749cf0FA67b45FaBFC251823) from block 12070221 (`src/LightsOn.sol`, `docs/lights-contract.md`); practice copy [0x7c1b0f0e051645B157356c583a3eb4c41b63Dfab](https://sepolia.etherscan.io/address/0x7c1b0f0e051645B157356c583a3eb4c41b63Dfab). The same code first ran on the old core at 0x262c88c4eedf3d543d2523f87fa47701ac429844 (IMD launch 2876, no bets) until that core stopped on 4 Nov.
 
 The wheel speed (`speedMmPerSecond` on a fresh reading from the status API) only animates the wheel and says
 whether he's running this minute; it never decides a bulb. `coreStatus` is never used.
